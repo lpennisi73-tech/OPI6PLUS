@@ -65,6 +65,10 @@ nano config/board.conf  # → ROOT_UUID="votre-uuid"
 # Build complet kernel 6.19
 ./bookworm-sky1-build.sh --kernel 6.19-latest
 
+# Build complet kernel 6.19 avec installation
+
+./bookworm-sky1-build.sh --kernel 6.19-latest --jobs 8 --install
+
 # Installer
 sudo ./install/install.sh --kernel-dir ~/build/sky1-kernel/linux-6.19
 
