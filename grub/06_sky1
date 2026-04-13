@@ -1,0 +1,90 @@
+#!/bin/sh
+# =============================================================================
+# 06_sky1 — Entrée GRUB pour kernel Sky1 OrangePi 6 Plus
+# BOOKWORM Sky1 Kernel Builder
+#
+# Ce fichier est généré automatiquement par bookworm-sky1-build.sh
+# Ne pas modifier manuellement — modifier les fichiers .conf à la place :
+#   config/board.conf
+#   config/kernels/X.Y-track.conf
+#
+# Installation : cp 06_sky1 /etc/grub.d/ && chmod +x /etc/grub.d/06_sky1
+#                grub-mkconfig -o /boot/grub/grub.cfg
+# =============================================================================
+exec tail -n +3 $0
+
+# ---------------------------------------------------------------------------
+# Variables — injectées par bookworm-sky1-build.sh lors de la génération
+# ---------------------------------------------------------------------------
+KERNEL_VERSION="@@KERNEL_VERSION@@"
+KERNEL_FULL_VERSION="@@KERNEL_FULL_VERSION@@"
+ROOT_UUID="@@ROOT_UUID@@"
+BOARD_NAME="@@BOARD_NAME@@"
+
+menuentry "Sky1 ${BOARD_NAME} - Kernel ${KERNEL_FULL_VERSION} (GPU+NPU)" \
+    --class debian --class gnu-linux --class gnu --class os {
+
+    load_video
+    insmod gzio
+    insmod part_gpt
+    insmod ext2
+
+    # Chercher la partition root par UUID
+    search --no-floppy --fs-uuid --set=root ${ROOT_UUID}
+
+    echo "Loading Sky1 Linux ${KERNEL_FULL_VERSION}-sky1-custom ..."
+    linux /boot/vmlinuz-${KERNEL_VERSION}-sky1-custom \
+        root=UUID=${ROOT_UUID} ro \
+        loglevel=7 \
+        console=tty0 \
+        console=ttyAMA2,115200 \
+        efi=noruntime \
+        acpi=off \
+        clk_ignore_unused \
+        linlon_dp.enable_fb=1 \
+        linlon_dp.enable_render=0 \
+        fbcon=map:01111111 \
+        plymouth.enable=0 \
+        rd.plymouth=0 \
+        rootwait
+
+    echo "Loading initial ramdisk ..."
+    initrd /boot/initrd.img-${KERNEL_FULL_VERSION}.0-sky1-custom
+
+    echo "Loading device tree ..."
+    devicetree /boot/dtb/sky1-orangepi-6-plus.dtb
+}
+
+# ---------------------------------------------------------------------------
+# Entrée recovery — même kernel, mode rescue
+# ---------------------------------------------------------------------------
+menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} (Recovery)" \
+    --class debian --class gnu-linux --class gnu --class os {
+
+    load_video
+    insmod gzio
+    insmod part_gpt
+    insmod ext2
+
+    search --no-floppy --fs-uuid --set=root ${ROOT_UUID}
+
+    echo "Loading Sky1 Linux ${KERNEL_FULL_VERSION} Recovery ..."
+    linux /boot/vmlinuz-${KERNEL_VERSION}-sky1-custom \
+        root=UUID=${ROOT_UUID} ro \
+        loglevel=8 \
+        console=tty0 \
+        console=ttyAMA2,115200 \
+        efi=noruntime \
+        acpi=off \
+        clk_ignore_unused \
+        plymouth.enable=0 \
+        rd.plymouth=0 \
+        systemd.unit=rescue.target \
+        rootwait
+
+    echo "Loading initial ramdisk ..."
+    initrd /boot/initrd.img-${KERNEL_FULL_VERSION}.0-sky1-custom
+
+    echo "Loading device tree ..."
+    devicetree /boot/dtb/sky1-orangepi-6-plus.dtb
+}
