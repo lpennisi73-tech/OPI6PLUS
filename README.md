@@ -35,6 +35,24 @@ panthor 15000000.gpu: [drm] CSF FW using interface v3.13.0
 | GPU | Mali-G720 Immortalis MC10 |
 | Storage | NVMe SSD (slot PCIe X8) |
 
+
+
+## ⚠️ Limitations connues
+
+### CPU Fréquences limitées par firmware
+| Cluster | Fréquences disponibles | Fréquence réelle |
+|---------|----------------------|------------------|
+| A520 (cpu0-3) | 800/1200/1500 MHz | max théorique 1.8GHz |
+| A720 (cpu4-11) | 800/1800 MHz | max théorique 2.6GHz |
+
+Les OPP CPU sont fournis dynamiquement par le firmware SCMI (BIOS 1.4).
+Les fréquences max (1.8GHz A520, 2.6GHz A720) ne sont pas exposées par
+ce firmware. Un BIOS update CIX pourrait débloquer les fréquences complètes.
+
+### cpufreq — module à charger manuellement
+`scmi-cpufreq` est en `=m` — ajouter au boot :
+    echo "scmi-cpufreq" > /etc/modules-load.d/sky1-cpufreq.conf
+
 ### Logiciel
 ```bash
 # Gentoo — outils requis
