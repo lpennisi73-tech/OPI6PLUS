@@ -1,14 +1,8 @@
-# =============================================================================
-# .gitignore — BOOKWORM Sky1 Kernel Builder
-# =============================================================================
-
 # Logs de compilation
 logs/*.log
 logs/*.txt
 
-# Répertoire de build kernel (trop volumineux)
-# Les sources kernel ne sont pas versionnées ici
-# Elles sont téléchargées automatiquement par le script
+# Répertoire de build kernel
 ~/build/
 /build/
 
@@ -21,59 +15,30 @@ logs/*.txt
 *.o
 *.ko
 *.a
-*.so
 vmlinux
-vmlinux.o
 Image
 zImage
-bzImage
-uImage
 
-# Fichiers temporaires kernel build
-.tmp_*
-*.cmd
-*.d
-modules.order
-modules.builtin
-Module.symvers
-*.mod.c
-
-# Config kernel générée (on garde les .conf du projet mais pas le .config build)
-# Note: les fichiers config/kernels/*.conf SONT versionnés
+# Config kernel générée
 linux-*/.config
 linux-*/.config.old
 
-# Firmware binaires (redistribués séparément)
-firmware/*.bin
+# Firmware VPU/DSP (trop volumineux — redistribués séparément)
 firmware/*.fwb
-# Mais on garde le README firmware
-!firmware/README.md
+
+# Firmware Mali — INCLUS dans le repo (arch12.8 pour Sky1)
+# firmware/*.bin  ← décommenté intentionnellement
 
 # Fichiers système
 .DS_Store
-Thumbs.db
 *~
 *.swp
-*.swo
-\#*\#
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-
-# Backup configs
-*.bak
-*.bak.*
-
-# Fichiers de patch rejetés
 *.rej
 *.orig
-
-# Marker de patches appliqués (local au build)
+*.bak*
+__pycache__/
+*.pyc
 linux-*/.sky1-patched
-
-# Credentials (ne JAMAIS committer)
 .env
 *.token
 *.secret

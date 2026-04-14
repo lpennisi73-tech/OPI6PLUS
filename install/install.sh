@@ -157,13 +157,24 @@ if $DO_FIRMWARE; then
 
     FIRMWARE_SRC="$PROJECT_DIR/firmware"
     MALI_FW="/lib/firmware/arm/mali/arch12.8/mali_csffw.bin"
+    MALI_FW_SYMLINK="/lib/firmware/mali_csffw.bin"
 
-    if [[ -f "$MALI_FW" ]]; then
-        echo -e "${GREEN}OK${NC} Firmware Mali déjà présent: $MALI_FW"
+    # Installer depuis le repo si present
+    if [[ -f "$FIRMWARE_SRC/arm/mali/arch12.8/mali_csffw.bin" ]]; then
+        mkdir -p /lib/firmware/arm/mali/arch12.8/
+        cp -r "$FIRMWARE_SRC/arm/" /lib/firmware/
+        echo -e "${GREEN}OK${NC} Firmware Mali installe depuis le repo"
+    elif [[ -f "$MALI_FW" ]]; then
+        echo -e "${GREEN}OK${NC} Firmware Mali deja present: $MALI_FW"
     else
-        echo -e "${YELLOW}WARN${NC} Firmware Mali absent: $MALI_FW"
-        echo "  → Télécharge depuis: https://github.com/Sky1-Linux/sky1-firmware"
-        echo "  → Place dans: /lib/firmware/arm/mali/arch12.8/"
+        echo -e "${YELLOW}WARN${NC} Firmware Mali absent"
+        echo "  Telecharge depuis: https://github.com/Sky1-Linux/sky1-firmware"
+    fi
+
+    # Symlink fallback
+    if [[ -f "$MALI_FW" && ! -f "$MALI_FW_SYMLINK" ]]; then
+        ln -sf "$MALI_FW" "$MALI_FW_SYMLINK"
+        echo -e "${GREEN}OK${NC} Symlink Mali cree"
     fi
 fi
 
