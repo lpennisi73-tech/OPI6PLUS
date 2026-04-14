@@ -128,7 +128,7 @@ for pfile in $(ls "$PATCHES_DIR"/*.patch | sort); do
 
     # Dispatch vers le handler approprié selon le patch
     case "$pname" in
-        0118-*)
+        0117-*|0118-*)
             # Conflit connu — correction manuelle du hunk panthor_gpu.c
             fix_patch_0118 "$pfile" || {
                 echo -e "${RED}ARRÊT sur $pname${NC}"
