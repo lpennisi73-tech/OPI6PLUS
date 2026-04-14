@@ -368,7 +368,7 @@ fi
 # =============================================================================
 if $DO_INSTALL && ! $DRY_RUN; then
     step "Installation"
-    bash "$SCRIPT_DIR/install/install.sh" --kernel-dir "$KERNEL_SRC_DIR"
+    KERNEL_FULL_VERSION="$KERNEL_FULL_VERSION" KERNEL_VERSION="$KERNEL_VERSION" SKY1_TRACK="$SKY1_TRACK" bash "$SCRIPT_DIR/install/install.sh" --kernel-dir "$KERNEL_SRC_DIR"
 fi
 
 # =============================================================================
