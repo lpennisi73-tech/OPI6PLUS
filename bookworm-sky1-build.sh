@@ -221,9 +221,10 @@ FIXES_DIR="$SCRIPT_DIR/patches/fixes"
 
 if ! $SKIP_PATCHES; then
     # Appliquer les fixes Python avant les patches Sky1
+    # Seul le fix panthor coherency s'applique avant les patches
     for fix_name in $FIXES; do
         FIX_FILE="$FIXES_DIR/${fix_name}.py"
-        if [[ -f "$FIX_FILE" ]]; then
+        if [[ -f "$FIX_FILE" && "$fix_name" == *"panthor"* ]]; then
             info "Fix pré-patch: $fix_name"
             if ! $DRY_RUN; then
                 python3 "$FIX_FILE" 2>&1 | tee -a "$LOG_FILE" || \
@@ -268,21 +269,18 @@ fi
 step "Étape 4/6 — Fixes post-patch (DTS + drivers)"
 
 if ! $SKIP_PATCHES; then
-    # Fix DTS slots PCIe vides
-    DTS_FIX="$FIXES_DIR/dts-disable-empty-pcie-slots.py"
-    if [[ -f "$DTS_FIX" ]]; then
-        info "Fix DTS: désactivation slots PCIe vides..."
-        $DRY_RUN || python3 "$DTS_FIX" 2>&1 | tee -a "$LOG_FILE"
-        ok "DTS slots PCIe corrigés"
-    fi
-
-    # Fix driver PCIe guard link-down
-    PCI_FIX="$FIXES_DIR/pci-sky1-link-down-guard.py"
-    if [[ -f "$PCI_FIX" ]]; then
-        info "Fix driver: PCIe link-down guard..."
-        $DRY_RUN || python3 "$PCI_FIX" 2>&1 | tee -a "$LOG_FILE"
-        ok "PCIe link-down guard appliqué"
-    fi
+    # Appliquer tous les fixes post-patch depuis FIXES (sauf panthor qui est pre-patch)
+    for fix_name in $FIXES; do
+        [[ "$fix_name" == *"panthor"* ]] && continue
+        FIX_FILE="$FIXES_DIR/${fix_name}.py"
+        if [[ -f "$FIX_FILE" ]]; then
+            info "Fix post-patch: $fix_name"
+            $DRY_RUN || python3 "$FIX_FILE" 2>&1 | tee -a "$LOG_FILE"
+            ok "$fix_name applique"
+        else
+            warn "Fix non trouve: $FIX_FILE"
+        fi
+    done
 fi
 
 # =============================================================================
