@@ -326,6 +326,9 @@ if ! $SKIP_CONFIG; then
 
     # Résolution finale des dépendances
     $DRY_RUN || make ARCH=arm64 olddefconfig 2>&1 | tee -a "$LOG_FILE"
+    # Fix modules avec symboles manquants (ChromeOS privacy screen)
+    info "Fix modules incompatibles..."
+    $DRY_RUN || scripts/config --disable CHROMEOS_PRIVACY_SCREEN 2>/dev/null || true
     ok "Configuration kernel finalisée"
 
 else

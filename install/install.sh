@@ -163,12 +163,13 @@ if $DO_INITRAMFS; then
     echo -e "${GREEN}OK${NC} Config dracut installee"
 
     # Detecter le vrai kver depuis /lib/modules
-    # Ex: KERNEL_FULL_VERSION=7.0 → kver=7.0.0-gentoo-dist
     KVER=$(ls /lib/modules/ | grep "^${KERNEL_FULL_VERSION}" | grep "gentoo-dist" | head -1)
     if [[ -z "$KVER" ]]; then
         KVER="${KERNEL_FULL_VERSION}-gentoo-dist"
     fi
-    INITRD="/boot/initrd.img-${KVER}-sky1-custom"
+    # Nom initrd sans le suffixe gentoo-dist
+    INITRD_VERSION=$(echo "$KVER" | sed "s/-gentoo-dist//")
+    INITRD="/boot/initrd.img-${INITRD_VERSION}-sky1-custom"
 
     echo "Creation initramfs pour $KVER ..."
     dracut --force --kver "$KVER" "$INITRD"
