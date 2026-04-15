@@ -347,7 +347,7 @@ if ! $SKIP_BUILD; then
     info "Logs: $LOG_FILE"
 
     if ! $DRY_RUN; then
-        make ARCH=arm64 -j${JOBS} Image modules dtbs 2>&1 | tee -a "$LOG_FILE"
+        make ARCH=arm64 -j${JOBS} ${CC:+CC="$CC"} ${CXX:+CXX="$CXX"} Image modules dtbs 2>&1 | tee -a "$LOG_FILE"
         BUILD_EXIT=${PIPESTATUS[0]}
         [[ $BUILD_EXIT -ne 0 ]] && die "Compilation échouée (code $BUILD_EXIT) — voir $LOG_FILE"
     fi
