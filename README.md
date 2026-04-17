@@ -269,6 +269,17 @@ Testé sur OrangePi 6 Plus avec kernel 6.19-sky1 — Mesa 25.x — 1920×1080
 
 ---
 
+
+## Remerciements
+
+Ce projet a été développé en collaboration avec Claude (Anthropic) 
+qui a participé activement au développement du pipeline, 
+aux corrections des patches kernel, aux fixes DTS et drivers, 
+et à la validation du portage Linux 7.0 sur OrangePi 6 Plus.
+
+Un grand merci à l'équipe Sky1-Linux pour leur travail 
+de portage vers le mainline Linux !
+
 ## 📺 BOOKWORM
 
 Ce projet fait partie de la chaîne **BOOKWORM** — rendre les technologies
