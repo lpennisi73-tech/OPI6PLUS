@@ -20,3 +20,17 @@ echo "options nvme_core default_ps_max_latency_us=0" > \
     /etc/modprobe.d/nvme-fix.conf
 
 Testé sur: OrangePi 6 Plus — Linux 6.18/6.19/7.0
+
+## Fix shutdown/reboot bloqué
+
+Symptôme: shutdown ou reboot bloque indéfiniment sur des process bash/su
+Cause: sessions SSH ou process récalcitrants ne reçoivent pas SIGKILL
+
+Fix permanent dans /etc/systemd/system.conf:
+DefaultTimeoutStopSec=10s
+SendSIGKILL=yes
+
+Commandes:
+sed -i 's/#DefaultTimeoutStopSec=.*/DefaultTimeoutStopSec=10s/' /etc/systemd/system.conf
+sed -i 's/#SendSIGKILL=.*/SendSIGKILL=yes/' /etc/systemd/system.conf
+systemctl daemon-reload
