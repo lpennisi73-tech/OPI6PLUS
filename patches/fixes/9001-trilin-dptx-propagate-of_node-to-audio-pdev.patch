@@ -1,0 +1,23 @@
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c	2026-04-18 15:29:59.497298311 +0200
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c	2026-04-18 15:31:05.313973834 +0200
+@@ -3138,7 +3138,19 @@
+ 		dp->dev, HDMI_CODEC_DRV_NAME, PLATFORM_DEVID_AUTO, &codec_data,
+ 		sizeof(codec_data));
+ 
+-	return PTR_ERR_OR_ZERO(dptx_aud->pdev);
++	if (IS_ERR(dptx_aud->pdev))
++		return PTR_ERR(dptx_aud->pdev);
++
++	/* Propagate the parent DT node so ASoC can resolve
++	 * sound-dai = <&dp0> in cix_card_parse_of().
++	 * platform_device_register_data() does not inherit of_node,
++	 * so snd_soc_of_get_dai_link_codecs() would never find
++	 * this codec without this assignment.
++	 */
++	if (!ACPI_COMPANION(dp->dev) && dp->dev->of_node)
++		dptx_aud->pdev->dev.of_node = of_node_get(dp->dev->of_node);
++
++	return 0;
+ }
+ 
+ static void dptx_unregister_audio_device(void *data)

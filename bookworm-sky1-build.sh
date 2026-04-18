@@ -264,6 +264,24 @@ else
 fi
 
 # =============================================================================
+# =============================================================================
+# ÉTAPE 3b — PATCHES EXTRA (patches locaux additionnels)
+# =============================================================================
+if ! $SKIP_PATCHES && [[ -n "$PATCHES_EXTRA" ]]; then
+    step "Étape 3b — Patches extra locaux"
+    EXTRA_DIR="$SCRIPT_DIR/patches/fixes"
+    for patch_name in $PATCHES_EXTRA; do
+        PATCH_FILE="$EXTRA_DIR/${patch_name}.patch"
+        if [[ -f "$PATCH_FILE" ]]; then
+            info "Patch extra: $patch_name"
+            $DRY_RUN || patch -p1 < "$PATCH_FILE" 2>&1 | tee -a "$LOG_FILE"
+            ok "$patch_name appliqué"
+        else
+            warn "Patch extra non trouvé: $PATCH_FILE"
+        fi
+    done
+fi
+
 # ÉTAPE 4 — FIXES POST-PATCH (DTS, driver)
 # =============================================================================
 step "Étape 4/6 — Fixes post-patch (DTS + drivers)"
