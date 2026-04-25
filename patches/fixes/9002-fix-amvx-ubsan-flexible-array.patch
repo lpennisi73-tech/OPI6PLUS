@@ -1,0 +1,5 @@
+--- a/drivers/media/platform/cix/if/mvx_mmu.h
++++ b/drivers/media/platform/cix/if/mvx_mmu.h
+@@ -129,1 +129,1 @@ struct mvx_mmu_pages {
+-    phys_addr_t pages[0];
++    phys_addr_t pages[];
