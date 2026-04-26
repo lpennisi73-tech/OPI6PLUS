@@ -5,8 +5,8 @@
 # =============================================================================
 
 DISTCC_HOST="192.168.0.58"
-DISTCC_HOST_JOBS=10
-DISTCC_LOCAL_JOBS=10
+DISTCC_HOST_JOBS=12
+DISTCC_LOCAL_JOBS=8
 
 export DISTCC_HOSTS="${DISTCC_HOST}/${DISTCC_HOST_JOBS} localhost/${DISTCC_LOCAL_JOBS}"
 

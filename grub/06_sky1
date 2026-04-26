@@ -40,7 +40,6 @@ menuentry "Sky1 ${BOARD_NAME} - Kernel ${KERNEL_FULL_VERSION} (GPU+NPU)" \
         console=ttyAMA2,115200 \
         efi=noruntime \
         acpi=off \
-        iommu.passthrough=1 \
         clk_ignore_unused \
         linlon_dp.enable_fb=1 \
         linlon_dp.enable_render=0 \
