@@ -1,0 +1,571 @@
+#!/bin/bash
+# =============================================================================
+#  ██████╗  ██████╗  ██████╗ ██╗  ██╗██╗    ██╗ ██████╗ ██████╗ ███╗   ███╗
+#  ██╔══██╗██╔═══██╗██╔═══██╗██║ ██╔╝██║    ██║██╔═══██╗██╔══██╗████╗ ████║
+#  ██████╔╝██║   ██║██║   ██║█████╔╝ ██║ █╗ ██║██║   ██║██████╔╝██╔████╔██║
+#  ██╔══██╗██║   ██║██║   ██║██╔═██╗ ██║███╗██║██║   ██║██╔══██╗██║╚██╔╝██║
+#  ██████╔╝╚██████╔╝╚██████╔╝██║  ██╗╚███╔███╔╝╚██████╔╝██║  ██║██║ ╚═╝ ██║
+#  ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝
+#
+#  VPU Hardware Encoder — OrangePi 6 Plus (CIX P1 / ARM Linlon MVE v8)
+#  Version  : 1.0.0
+#  Author   : Kenny — BOOKWORM Project
+#  Hardware : CIX Sky1 (CD8180) — ARM Linlon MVE v8 VPU
+#  Kernel   : 7.0.0-gentoo-dist (Sky1 patches + fix-amvx-vb2-lock)
+#  FFmpeg   : ffmpeg-sky1 8.0.1 (Sky1-Linux fork + GCC15 fix)
+#
+#  GitHub   :
+#  YouTube  : @Kennytech73
+#
+#  Supported codecs (hardware) :
+#    Encode : H.264, HEVC (H.265), VP8, VP9
+#    Decode : H.264, HEVC, VP8, VP9, AV1, MPEG-2, MPEG-4
+#
+#  Requirements :
+#    - ffmpeg-sky1 installed (media-video/ffmpeg-sky1 from localrepo)
+#    - Kernel with fix-amvx-vb2-lock patch applied
+#    - User in 'video' group
+#    - /dev/video1 (MVX encoder device)
+# =============================================================================
+
+set -euo pipefail
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+FFMPEG="${FFMPEG_BIN:-ffmpeg-sky1}"
+FFPROBE="${FFPROBE_BIN:-ffprobe-sky1}"
+VPU_DEVICE="/dev/video1"
+VERSION="1.0.0"
+
+# Colors — robust detection compatible with Gnome Terminal, sudo, SSH
+# Force color if COLORTERM is set (Gnome Terminal sets this)
+_has_color=false
+if [[ -n "${COLORTERM:-}" ]]; then
+    _has_color=true
+elif [[ -t 1 ]] && command -v tput &>/dev/null && tput colors &>/dev/null 2>&1; then
+    [[ $(tput colors) -ge 8 ]] && _has_color=true
+fi
+
+if [[ "${_has_color}" == true ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    CYAN='\033[0;36m'
+    BOLD='\033[1m'
+    NC='\033[0m'
+else
+    RED='' GREEN='' YELLOW='' BLUE='' CYAN='' BOLD='' NC=''
+fi
+
+# Default encoding parameters
+DEFAULT_CODEC="h264"
+DEFAULT_BITRATE="4M"
+DEFAULT_PRESET=""
+DEFAULT_PIXFMT="nv12"
+DEFAULT_AUDIO_CODEC="aac"
+DEFAULT_AUDIO_BITRATE="128k"
+
+# =============================================================================
+# HELPERS
+# =============================================================================
+
+banner() {
+    printf "%b" "${CYAN}"
+    printf "╔══════════════════════════════════════════════════════════════╗\n"
+    printf "║         BOOKWORM VPU Encoder — OrangePi 6 Plus               ║\n"
+    printf "║         CIX P1 ARM Linlon MVE v8 — Hardware Acceleration     ║\n"
+    printf "╚══════════════════════════════════════════════════════════════╝\n"
+    printf "%b\n" "${NC}"
+}
+
+log_info()    { printf "%b\n" "${GREEN}[INFO]${NC}  $*"; }
+log_warn()    { printf "%b\n" "${YELLOW}[WARN]${NC}  $*"; }
+log_error()   { printf "%b\n" "${RED}[ERROR]${NC} $*" >&2; }
+log_step()    { printf "%b\n" "${BLUE}[STEP]${NC}  $*"; }
+log_result()  { printf "%b\n" "${BOLD}${GREEN}[DONE]${NC}  $*"; }
+
+die() {
+    log_error "$*"
+    exit 1
+}
+
+# =============================================================================
+# SYSTEM CHECKS
+# =============================================================================
+
+check_requirements() {
+    log_step "Checking system requirements..."
+
+    # Check ffmpeg-sky1
+    if ! command -v "${FFMPEG}" &>/dev/null; then
+        die "ffmpeg-sky1 not found. Install media-video/ffmpeg-sky1 from localrepo."
+    fi
+    local ffver
+    ffver=$("${FFMPEG}" -version 2>&1 | head -1 | awk '{print $3}')
+    log_info "FFmpeg : ${ffver}"
+
+    # Check VPU device
+    if [[ ! -e "${VPU_DEVICE}" ]]; then
+        die "VPU device ${VPU_DEVICE} not found. Is the amvx kernel module loaded?"
+    fi
+    log_info "VPU device : ${VPU_DEVICE} ✓"
+
+    # Check permissions
+    if [[ ! -r "${VPU_DEVICE}" ]] || [[ ! -w "${VPU_DEVICE}" ]]; then
+        log_warn "No access to ${VPU_DEVICE}."
+        log_warn "Add your user to the 'video' group: usermod -aG video \$USER"
+        die "Permission denied on ${VPU_DEVICE}"
+    fi
+    log_info "VPU access : OK ✓"
+
+    # Check kernel module — use multiple methods for robustness
+    if ! lsmod | grep -q "amvx" && \
+       ! grep -q "^amvx " /proc/modules 2>/dev/null && \
+       ! [[ -d /sys/module/amvx ]]; then
+        die "amvx kernel module not loaded. Run: modprobe amvx"
+    fi
+    log_info "Kernel module : amvx ✓"
+
+    echo ""
+}
+
+# =============================================================================
+# CODEC SELECTION
+# =============================================================================
+
+# Map codec name to v4l2m2m encoder and file extension
+get_codec_info() {
+    local codec="$1"
+    case "${codec,,}" in
+        h264|avc)
+            echo "h264_v4l2m2m mp4 H.264/AVC"
+            ;;
+        hevc|h265)
+            echo "hevc_v4l2m2m mp4 HEVC/H.265"
+            ;;
+        vp8)
+            echo "vp8_v4l2m2m webm VP8"
+            ;;
+        vp9)
+            echo "vp9_v4l2m2m webm VP9"
+            ;;
+        *)
+            die "Unsupported codec '${codec}'. Supported: h264, hevc, vp8, vp9"
+            ;;
+    esac
+}
+
+# =============================================================================
+# ENCODING FUNCTIONS
+# =============================================================================
+
+encode_single() {
+    local input="$1"
+    local output="$2"
+    local codec="${3:-${DEFAULT_CODEC}}"
+    local bitrate="${4:-${DEFAULT_BITRATE}}"
+    local extra_opts="${5:-}"
+
+    [[ -f "${input}" ]] || die "Input file not found: ${input}"
+
+    local codec_info
+    codec_info=$(get_codec_info "${codec}")
+    local encoder ext codec_name
+    read -r encoder ext codec_name <<< "${codec_info}"
+
+    # Auto-add extension if output has none
+    if [[ "${output}" != *"."* ]]; then
+        output="${output}.${ext}"
+    fi
+
+    log_step "Encoding: ${input}"
+    log_info "Codec   : ${codec_name} (${encoder})"
+    log_info "Bitrate : ${bitrate}"
+    log_info "Output  : ${output}"
+    echo ""
+
+    # Get input info — duration and audio channels
+    local duration
+    duration=$("${FFPROBE}" -v quiet -show_entries format=duration \
+        -of default=noprint_wrappers=1:nokey=1 "${input}" 2>/dev/null || echo "?")
+    if [[ "${duration}" != "?" ]]; then
+        printf "  Duration : %.2f seconds\n" "${duration}"
+    fi
+
+    # Detect audio channels and adapt bitrate accordingly
+    # 128k is fine for stereo but catastrophic for 5.1 (~21k/channel)
+    local channels audio_bitrate
+    channels=$("${FFPROBE}" -v quiet \
+        -show_entries stream=channels \
+        -select_streams a:0 \
+        -of default=noprint_wrappers=1:nokey=1 \
+        "${input}" 2>/dev/null | head -1)
+    case "${channels}" in
+        1) audio_bitrate="96k"  ;;  # mono
+        2) audio_bitrate="128k" ;;  # stereo
+        6) audio_bitrate="384k" ;;  # 5.1 — 64k/channel minimum
+        8) audio_bitrate="512k" ;;  # 7.1 — 64k/channel minimum
+        *) audio_bitrate="${DEFAULT_AUDIO_BITRATE}" ;;
+    esac
+    log_info "Audio   : ${channels:-?}ch → ${audio_bitrate}"
+
+    local start_time
+    start_time=$(date +%s%N)
+
+    # Progress file — FFmpeg writes stats here, we read them separately
+    local progress_file
+    progress_file=$(mktemp /tmp/bookworm_progress_XXXXXX)
+
+    # Build FFmpeg command
+    # NOTE: -vf format=nv12 is REQUIRED for the CIX Sky1 VPU
+    # The MVX driver requires YUV input (NV12), not RGB
+    #
+    # Audio sync fixes for V4L2 M2M hardware encoder :
+    #   -vsync cfr          : force constant framerate — prevents PTS drift
+    #                         when the VPU returns frames out of order
+    #   -af aresample=async=1000 : resample audio to stay in sync with video
+    #                         (1000 = max samples/sec compensation)
+    #   -max_muxing_queue_size 1024 : prevents muxer stalls when video is
+    #                         faster than audio (common with HW encoders)
+    "${FFMPEG}" \
+        -i "${input}" \
+        -vf "format=${DEFAULT_PIXFMT}" \
+        -c:v "${encoder}" \
+        -b:v "${bitrate}" \
+        -vsync cfr \
+        -c:a "${DEFAULT_AUDIO_CODEC}" \
+        -b:a "${audio_bitrate}" \
+        -af "aresample=async=1000" \
+        -max_muxing_queue_size 1024 \
+        ${extra_opts} \
+        -progress "${progress_file}" \
+        -nostats \
+        -y "${output}" \
+        2>/tmp/bookworm_ffmpeg_err.log &
+
+    local ffmpeg_pid=$!
+
+    # Progress display loop — reads from -progress file
+    # FFmpeg writes key=value pairs : frame=, fps=, speed=, out_time=, etc.
+    local frame=0 fps=0 speed=0 out_time="00:00:00"
+    local total_frames=0
+    if [[ "${duration}" != "?" ]]; then
+        # Estimate total frames from duration and input framerate
+        local fps_in
+        fps_in=$("${FFPROBE}" -v quiet -show_entries stream=r_frame_rate \
+            -select_streams v:0 \
+            -of default=noprint_wrappers=1:nokey=1 \
+            "${input}" 2>/dev/null | head -1)
+        # fps_in is often "30000/1001" format — evaluate it
+        total_frames=$(echo "${fps_in:-30/1} ${duration}" | \
+            awk '{split($1,a,"/"); fps=a[1]/a[2]; printf "%d", fps*$2}')
+    fi
+
+    printf "\n"
+    while kill -0 "${ffmpeg_pid}" 2>/dev/null; do
+        if [[ -f "${progress_file}" ]]; then
+            frame=$(grep   "^frame="    "${progress_file}" 2>/dev/null | tail -1 | cut -d= -f2 || echo 0)
+            fps=$(grep     "^fps="      "${progress_file}" 2>/dev/null | tail -1 | cut -d= -f2 || echo 0)
+            speed=$(grep   "^speed="    "${progress_file}" 2>/dev/null | tail -1 | cut -d= -f2 || echo "0x")
+            out_time=$(grep "^out_time=" "${progress_file}" 2>/dev/null | tail -1 | cut -d= -f2 || echo "00:00:00")
+            out_time="${out_time%%.*}" # remove microseconds
+
+            # Build progress bar if we know total frames
+            local bar=""
+            if [[ "${total_frames}" -gt 0 ]] 2>/dev/null; then
+                local pct=$(( frame * 100 / total_frames ))
+                local filled=$(( pct * 30 / 100 ))
+                local empty=$(( 30 - filled ))
+                bar=$(printf "[%${filled}s%${empty}s] %3d%%" | \
+                    tr ' ' '█' | sed 's/█\( *\)$/\1/')
+                # Simpler approach
+                bar="["
+                for ((i=0; i<filled; i++)); do bar+="█"; done
+                for ((i=0; i<empty; i++));  do bar+="░"; done
+                bar+="] ${pct}%"
+            fi
+
+            printf "\r  %b%s%b  frame=%-6s fps=%-6s speed=%-6s time=%s  " \
+                "${CYAN}" "${bar}" "${NC}" \
+                "${frame}" "${fps}" "${speed}" "${out_time}"
+        fi
+        sleep 0.5
+    done
+
+    # Wait for FFmpeg to finish and get its exit code
+    wait "${ffmpeg_pid}"
+    local ffmpeg_ret=$?
+
+    printf "\n"
+    rm -f "${progress_file}"
+
+    # Show errors if any
+    if [[ -s /tmp/bookworm_ffmpeg_err.log ]]; then
+        grep -iE "error|warning|failed" /tmp/bookworm_ffmpeg_err.log | \
+            grep -v "^$" | head -5 | \
+            while IFS= read -r line; do
+                printf "%b\n" "  ${YELLOW}${line}${NC}"
+            done
+    fi
+    rm -f /tmp/bookworm_ffmpeg_err.log
+
+    if [[ ${ffmpeg_ret} -ne 0 ]]; then
+        die "FFmpeg failed with exit code ${ffmpeg_ret}"
+    fi
+
+    local end_time
+    end_time=$(date +%s%N)
+    local elapsed=$(( (end_time - start_time) / 1000000 ))
+    local elapsed_s
+    elapsed_s=$(echo "scale=2; ${elapsed}/1000" | bc)
+
+    if [[ -f "${output}" && -s "${output}" ]]; then
+        local size
+        size=$(du -sh "${output}" | cut -f1)
+        log_result "Done in ${elapsed_s}s — Output: ${output} (${size})"
+    else
+        die "Encoding failed or output file is empty"
+    fi
+}
+
+batch_encode() {
+    local input_dir="$1"
+    local output_dir="$2"
+    local codec="${3:-${DEFAULT_CODEC}}"
+    local bitrate="${4:-${DEFAULT_BITRATE}}"
+
+    [[ -d "${input_dir}" ]] || die "Input directory not found: ${input_dir}"
+    mkdir -p "${output_dir}" || die "Cannot create output directory: ${output_dir}"
+
+    local codec_info
+    codec_info=$(get_codec_info "${codec}")
+    local encoder ext codec_name
+    read -r encoder ext codec_name <<< "${codec_info}"
+
+    # Find video files
+    local files=()
+    while IFS= read -r -d '' f; do
+        files+=("$f")
+    done < <(find "${input_dir}" -maxdepth 1 -type f \
+        \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \
+           -o -iname "*.mov" -o -iname "*.ts"  -o -iname "*.webm" \
+           -o -iname "*.flv" -o -iname "*.wmv" -o -iname "*.m4v" \) \
+        -print0)
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        die "No video files found in ${input_dir}"
+    fi
+
+    log_info "Found ${#files[@]} file(s) to encode"
+    log_info "Codec   : ${codec_name}"
+    log_info "Bitrate : ${bitrate}"
+    log_info "Output  : ${output_dir}"
+    echo ""
+
+    local success=0 failed=0 i=1
+    for input in "${files[@]}"; do
+        local basename
+        basename=$(basename "${input%.*}")
+        local output="${output_dir}/${basename}_${codec,,}.${ext}"
+
+        printf "%b\n" "${BOLD}[${i}/${#files[@]}] ${basename}${NC}"
+        if encode_single "${input}" "${output}" "${codec}" "${bitrate}"; then
+            (( success++ )) || true
+        else
+            log_error "Failed: ${input}"
+            (( failed++ )) || true
+        fi
+        (( i++ )) || true
+        echo ""
+    done
+
+    printf "%b\n" "${BOLD}═══════════════════════════════════${NC}"
+    log_result "Batch complete — Success: ${success} | Failed: ${failed}"
+}
+
+benchmark() {
+    log_step "Running VPU benchmark (1080p 30fps, 10 seconds)..."
+    echo ""
+
+    local codecs=("h264" "hevc" "vp8" "vp9")
+    local results=()
+
+    for codec in "${codecs[@]}"; do
+        local codec_info
+        codec_info=$(get_codec_info "${codec}")
+        local encoder ext codec_name
+        read -r encoder ext codec_name <<< "${codec_info}"
+
+        printf "  Testing %-12s : " "${codec_name}"
+
+        local tmpout
+        tmpout=$(mktemp /tmp/bookworm_bench_XXXXXX.${ext})
+
+        local start end elapsed fps speed
+        start=$(date +%s%N)
+
+        local bench_output
+        bench_output=$("${FFMPEG}" \
+            -f lavfi -i "testsrc=duration=10:size=1920x1080:rate=30" \
+            -vf "format=${DEFAULT_PIXFMT}" \
+            -c:v "${encoder}" -b:v "4M" \
+            -y "${tmpout}" 2>&1)
+
+        end=$(date +%s%N)
+        elapsed=$(( (end - start) / 1000000 ))
+
+        rm -f "${tmpout}"
+
+        # Extract fps and speed from ffmpeg output
+        fps=$(echo "${bench_output}" | grep -oP 'fps=\s*\K[0-9.]+' | tail -1)
+        speed=$(echo "${bench_output}" | grep -oP 'speed=\s*\K[0-9.]+' | tail -1)
+        local size=$(echo "${bench_output}" | grep -oP 'video:\K[0-9]+KiB' | tail -1)
+
+        if [[ -n "${fps}" ]]; then
+            printf "%b\n" "${GREEN}${fps} fps${NC} | ${speed}x realtime | ${size}"
+            results+=("${codec_name}|${fps}|${speed}|${size}")
+        else
+            printf "%b\n" "${RED}FAILED${NC}"
+            results+=("${codec_name}|FAILED|FAILED|0")
+        fi
+    done
+
+    echo ""
+    printf "%b\n" "${BOLD}════════════════════════════════════════════════════${NC}"
+    printf "%b\n" "${BOLD}  BOOKWORM VPU Benchmark Results — OrangePi 6 Plus  ${NC}"
+    printf "%b\n" "${BOLD}════════════════════════════════════════════════════${NC}"
+    printf "  %-20s %-10s %-12s %s\n" "Codec" "FPS" "Speed" "Size"
+    printf "  %-20s %-10s %-12s %s\n" "─────" "───" "─────" "────"
+    for r in "${results[@]}"; do
+        IFS='|' read -r cn f s sz <<< "${r}"
+        printf "  %-20s %-10s %-12s %s\n" "${cn}" "${f}" "${s}x" "${sz}"
+    done
+    echo ""
+}
+
+info_vpu() {
+    printf "%b\n" "${BOLD}VPU Information${NC}"
+    echo "─────────────────────────────────────────"
+    echo "  Device     : ${VPU_DEVICE}"
+    v4l2-ctl -d "${VPU_DEVICE}" --info 2>/dev/null | grep -E "Driver|Card|Version" | \
+        sed 's/^/  /'
+    echo ""
+    echo "  Supported input formats :"
+    v4l2-ctl -d "${VPU_DEVICE}" --list-formats-out 2>/dev/null | \
+        grep -E "^\s+\[" | sed 's/^/    /'
+    echo ""
+    echo "  Supported output codecs :"
+    v4l2-ctl -d "${VPU_DEVICE}" --list-formats 2>/dev/null | \
+        grep -E "^\s+\[" | sed 's/^/    /'
+    echo ""
+    echo "  Kernel module :"
+    modinfo amvx 2>/dev/null | grep -E "filename|version" | sed 's/^/    /'
+    echo ""
+    echo "  FFmpeg build :"
+    "${FFMPEG}" -version 2>&1 | head -2 | sed 's/^/    /'
+    echo ""
+}
+
+# =============================================================================
+# USAGE
+# =============================================================================
+
+usage() {
+    local me
+    me=$(basename "$0")
+    printf "%b\n" "${BOLD}USAGE${NC}"
+    printf "  %s <command> [options]\n\n" "${me}"
+    printf "%b\n\n" "${BOLD}COMMANDS${NC}"
+    printf "  %bencode%b <input> <o> [codec] [bitrate]\n" "${CYAN}" "${NC}"
+    printf "    Encode a single file using the VPU hardware\n\n"
+    printf "    codec   : h264 (default), hevc, vp8, vp9\n"
+    printf "    bitrate : 2M, 4M (default), 8M, 10M...\n\n"
+    printf "    Examples:\n"
+    printf "      %s encode video.mkv output.mp4\n" "${me}"
+    printf "      %s encode video.mkv output.mp4 hevc 6M\n" "${me}"
+    printf "      %s encode video.mkv output h264 4M\n\n" "${me}"
+    printf "  %bbatch%b <input_dir> <output_dir> [codec] [bitrate]\n" "${CYAN}" "${NC}"
+    printf "    Encode all video files in a directory\n\n"
+    printf "    Examples:\n"
+    printf "      %s batch ./videos ./encoded\n" "${me}"
+    printf "      %s batch ./videos ./encoded hevc 6M\n\n" "${me}"
+    printf "  %bbenchmark%b\n" "${CYAN}" "${NC}"
+    printf "    Run a hardware encoding benchmark (H.264, HEVC, VP8, VP9)\n"
+    printf "    Tests 1080p 30fps encoding performance\n\n"
+    printf "    Example:\n"
+    printf "      %s benchmark\n\n" "${me}"
+    printf "  %binfo%b\n" "${CYAN}" "${NC}"
+    printf "    Show VPU device information and capabilities\n\n"
+    printf "  %bcheck%b\n" "${CYAN}" "${NC}"
+    printf "    Check system requirements (driver, permissions, ffmpeg)\n\n"
+    printf "%b\n" "${BOLD}HARDWARE INFO${NC}"
+    printf "  SoC     : CIX P1 / CD8180 (OrangePi 6 Plus)\n"
+    printf "  VPU     : ARM Linlon MVE v8 - 4 cores\n"
+    printf "  Driver  : amvx (requires fix-amvx-vb2-lock kernel patch)\n"
+    printf "  FFmpeg  : ffmpeg-sky1 8.0.1 (Sky1-Linux fork)\n\n"
+    printf "%b\n" "${BOLD}NOTES${NC}"
+    printf "  Input is automatically converted to NV12 (required by the VPU)\n"
+    printf "  Audio is re-encoded to AAC 128k by default\n"
+    printf "  For copy audio: set AUDIO_CODEC=copy before running\n"
+    printf "  VP8/VP9 output goes to .webm format automatically\n\n"
+    printf "%b\n" "${BOLD}ENVIRONMENT${NC}"
+    printf "  FFMPEG_BIN      Path to ffmpeg binary (default: ffmpeg-sky1)\n"
+    printf "  FFPROBE_BIN     Path to ffprobe binary (default: ffprobe-sky1)\n"
+    printf "  AUDIO_CODEC     Audio codec (default: aac)\n"
+    printf "  AUDIO_BITRATE   Audio bitrate (default: 128k)\n\n"
+    printf "%b\n" "${BOLD}PROJECT${NC}"
+    printf "  BOOKWORM - Making complex open-source technologies accessible\n"
+    printf "  Patch & ebuild : https://www.bookworm-mon0.org\n\n"
+}
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+main() {
+    banner
+
+    local cmd="${1:-help}"
+    shift || true
+
+    case "${cmd}" in
+        encode)
+            check_requirements
+            [[ $# -ge 2 ]] || die "Usage: $(basename "$0") encode <input> <o> [codec] [bitrate]"
+            encode_single "$@"
+            ;;
+        batch)
+            check_requirements
+            [[ $# -ge 2 ]] || die "Usage: $(basename "$0") batch <input_dir> <output_dir> [codec] [bitrate]"
+            batch_encode "$@"
+            ;;
+        benchmark|bench)
+            check_requirements
+            benchmark
+            ;;
+        info)
+            info_vpu
+            ;;
+        check)
+            check_requirements
+            log_result "All checks passed — VPU ready !"
+            ;;
+        help|--help|-h)
+            usage
+            ;;
+        version|--version|-v)
+            printf "bookworm-vpu-encode v%s\n" "${VERSION}"
+            ;;
+        *)
+            log_error "Unknown command: ${cmd}"
+            echo ""
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
