@@ -285,7 +285,7 @@ de portage vers le mainline Linux !
 Ce projet fait partie de la chaîne **BOOKWORM** — rendre les technologies
 open-source complexes accessibles à tous.
 
-- 🎬 YouTube: [BOOKWORM Channel](@kennyTech73)
+- 🎬 YouTube: [@kennyTech73]
 
 ---
 
