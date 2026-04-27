@@ -285,9 +285,9 @@ de portage vers le mainline Linux !
 Ce projet fait partie de la chaîne **BOOKWORM** — rendre les technologies
 open-source complexes accessibles à tous.
 
-- 🎬 YouTube: [BOOKWORM Channel]
-- 🐙 Gitea: [git-srv.bookworm.ddns.net](https://git-srv.bookworm.ddns.net)
+- 🎬 YouTube: [BOOKWORM Channel](@kennyTech73)
 
 ---
 
 *Premier boot Gentoo 6.19 Sky1 sur OrangePi 6 Plus — 13 Avril 2026* 🚀
+*Premier boot Gentoo7.0 Sky1 sur OrangePi 6 Plus — 19 Avril 2026* 🚀
