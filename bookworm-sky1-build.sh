@@ -50,7 +50,7 @@ die()     { echo -e "${RED}FATAL: $1${NC}" | tee -a "$LOG_FILE"; exit 1; }
 # =============================================================================
 KERNEL_TRACK="6.19-latest"
 BASE_CONFIG=""
-BUILD_DIR="$HOME/build/sky1-kernel"
+BUILD_DIR="/usr/src/build/sky1-kernel"
 JOBS=$(nproc)
 SKIP_DOWNLOAD=false
 SKIP_PATCHES=false
