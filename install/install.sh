@@ -43,6 +43,14 @@ source "$PROJECT_DIR/config/board.conf" 2>/dev/null || {
     echo -e "${RED}ERREUR: board.conf introuvable${NC}"; exit 1
 }
 
+# --- Detection auto UUID root (override board.conf) ---
+DETECTED_UUID=$(findmnt -no UUID / 2>/dev/null)
+if [[ -n "$DETECTED_UUID" ]]; then
+    [[ "$DETECTED_UUID" != "$ROOT_UUID" ]] && \
+        echo -e "${YELLOW}UUID root detecte: $DETECTED_UUID (board.conf: $ROOT_UUID)${NC}"
+    ROOT_UUID="$DETECTED_UUID"
+fi
+
 # Utiliser KERNEL_FULL_VERSION passe en environnement depuis bookworm-sky1-build.sh
 # sinon chercher le premier .conf teste
 if [[ -z "$KERNEL_FULL_VERSION" ]]; then
@@ -50,6 +58,14 @@ if [[ -z "$KERNEL_FULL_VERSION" ]]; then
         source "$conf"
         [[ "$TESTED" == "yes" ]] && break
     done
+fi
+
+# --- Nom initrd coherent (evite double .0) ---
+INITRD_KVER=$(ls /lib/modules/ 2>/dev/null | grep "^${KERNEL_FULL_VERSION}" | grep "gentoo-dist" | head -1)
+if [[ -n "$INITRD_KVER" ]]; then
+    INITRD_VERSION=$(echo "$INITRD_KVER" | sed "s/-gentoo-dist//")
+else
+    INITRD_VERSION=$(echo "${KERNEL_FULL_VERSION}.0" | sed "s/\.0\.0$/.0/")
 fi
 
 # Auto-detecter le repertoire build
@@ -226,7 +242,7 @@ menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} ${SKY1_TRACK} (GPU+NPU)" 
         rootwait
 
     echo "Loading initial ramdisk ..."
-    initrd /boot/initrd.img-${KERNEL_FULL_VERSION}.0-sky1-custom
+    initrd /boot/initrd.img-${INITRD_VERSION}-sky1-custom
 
     echo "Loading device tree ..."
     devicetree ${DTB_PATH}
@@ -257,7 +273,7 @@ menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} ${SKY1_TRACK} (Recovery)"
         rootwait
 
     echo "Loading initial ramdisk ..."
-    initrd /boot/initrd.img-${KERNEL_FULL_VERSION}.0-sky1-custom
+    initrd /boot/initrd.img-${INITRD_VERSION}-sky1-custom
 
     echo "Loading device tree ..."
     devicetree ${DTB_PATH}
@@ -285,7 +301,7 @@ echo -e "${BLUE}=== Installation terminee ===${NC}"
 echo ""
 echo -e "  Kernel  : ${GREEN}/boot/vmlinuz-${KERNEL_FULL_VERSION}-sky1-custom${NC}"
 echo -e "  DTB     : ${GREEN}${DTB_PATH}${NC}"
-echo -e "  Initrd  : ${GREEN}/boot/initrd.img-${KERNEL_FULL_VERSION}.0-sky1-custom${NC}"
+echo -e "  Initrd  : ${GREEN}/boot/initrd.img-${INITRD_VERSION}-sky1-custom${NC}"
 echo -e "  GRUB    : ${GREEN}${GRUB_SCRIPT}${NC}"
 echo ""
 echo -e "${YELLOW}Prochaine etape:${NC}"
