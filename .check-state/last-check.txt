@@ -1,0 +1,13 @@
+behind=0
+korg_stable=7.2
+changelog_ver=6.19.4-1
+patches_next=43
+patches_latest=140
+korg_mainline=7.2
+local_commit=57e018a398248d7e5e4d798610df79a557c0629f
+p0001_latest=2d3b15a8f2c5
+remote_commit=57e018a398248d7e5e4d798610df79a557c0629f
+p0001_next=8e430dca8f23
+p0001_rc=8e430dca8f23
+patches_rc=43
+last_check=2026-08-18 18:03

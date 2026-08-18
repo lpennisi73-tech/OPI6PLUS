@@ -96,8 +96,15 @@ KERNEL_CONF="$SCRIPT_DIR/config/kernels/${KERNEL_TRACK}.conf"
 [[ ! -f "$BOARD_CONF" ]]  && die "board.conf introuvable: $BOARD_CONF"
 [[ ! -f "$KERNEL_CONF" ]] && die "Kernel config introuvable: $KERNEL_CONF"
 
+# Sauver BUILD_DIR (defaut ligne 53 ou --build-dir CLI) avant que
+# board.conf ne le redefinisse — le choix CLI/defaut doit gagner
+BUILD_DIR_OVERRIDE="$BUILD_DIR"
+
 source "$BOARD_CONF"
 source "$KERNEL_CONF"
+
+# Restaurer le BUILD_DIR CLI/defaut (prioritaire sur board.conf)
+[[ -n "$BUILD_DIR_OVERRIDE" ]] && BUILD_DIR="$BUILD_DIR_OVERRIDE"
 
 # Répertoires de build
 KERNEL_SRC_DIR="$BUILD_DIR/${KERNEL_TARBALL%.tar.xz}"
