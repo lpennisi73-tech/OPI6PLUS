@@ -40,6 +40,7 @@ menuentry "Sky1 ${BOARD_NAME} - Kernel ${KERNEL_FULL_VERSION} (GPU+NPU)" \
         console=ttyAMA2,115200 \
         efi=noruntime \
         acpi=off \
+        scmi_cpufreq.boost=1 \
         clk_ignore_unused \
         linlon_dp.enable_fb=1 \
         linlon_dp.enable_render=0 \
@@ -76,6 +77,7 @@ menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} (Recovery)" \
         console=ttyAMA2,115200 \
         efi=noruntime \
         acpi=off \
+        scmi_cpufreq.boost=1 \
         clk_ignore_unused \
         plymouth.enable=0 \
         rd.plymouth=0 \

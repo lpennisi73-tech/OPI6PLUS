@@ -39,19 +39,26 @@ panthor 15000000.gpu: [drm] CSF FW using interface v3.13.0
 
 ## ⚠️ Limitations connues
 
-### CPU Fréquences limitées par firmware
+### ✅ RÉSOLU — CPU Fréquences (anciennement limitées par firmware)
 | Cluster | Fréquences disponibles | Fréquence réelle |
 |---------|----------------------|------------------|
 | A520 (cpu0-3) | 800/1200/1500 MHz | max théorique 1.8GHz |
-| A720 (cpu4-11) | 800/1800 MHz | max théorique 2.6GHz |
+| A720 (cpu4-11) | 800/1800/**2600** MHz | **2.6GHz atteint et stable** |
 
-Les OPP CPU sont fournis dynamiquement par le firmware SCMI (BIOS 1.4).
-Les fréquences max (1.8GHz A520, 2.6GHz A720) ne sont pas exposées par
-ce firmware. Un BIOS update CIX pourrait débloquer les fréquences complètes.
+Les OPP CPU boost sont fournies dynamiquement par le firmware SCMI (BIOS 1.4),
+mais le firmware ne les active pas par défaut. Le patch local `9004-cpufreq-scmi-boost-param-from-init`
+(issu de la PR #42 Sky1-Linux, patch 0149) force l'activation des OPP boost au
+démarrage du driver `scmi-cpufreq` — plus besoin d'attendre un BIOS update CIX.
+Validé stable sous charge compile complète (12 cores) : 2.6GHz maintenu sans
+throttling jusqu'à ~73°C.
 
-### cpufreq — module à charger manuellement
-`scmi-cpufreq` est en `=m` — ajouter au boot :
-    echo "scmi-cpufreq" > /etc/modules-load.d/sky1-cpufreq.conf
+Appliqué sur les trois tracks (`6.18-lts`, `6.19-latest`, `7.0-next`) via `PATCHES_EXTRA`.
+
+### cpufreq — chargement et options automatisés
+`scmi-cpufreq` est en `=m`. Le chargement au boot et l'activation du boost
+(`scmi_cpufreq.boost=1`) sont maintenant gérés automatiquement par `install.sh`
+à partir de `board.conf` (variables `MODULES_AUTOLOAD` et `MODPROBE_OPTIONS`) —
+voir Bug #6 ci-dessous. Plus besoin de commande manuelle.
 
 ### Logiciel
 ```bash
@@ -73,22 +80,26 @@ cp sky1-firmware/mali_csffw.bin /lib/firmware/arm/mali/arch12.8/
 ## 🚀 Utilisation rapide
 
 ```bash
-# Cloner le projet
+# Cloner le projet (Gitea BOOKWORM — dépôt principal)
 git clone https://git-srv.bookworm.ddns.net/BOOKWORM/bookworm-sky1-kernel.git
 cd bookworm-sky1-kernel
+
+# OU depuis GitHub (miroir public)
+git clone https://github.com/lpennisi73-tech/OPI6PLUS.git
+cd OPI6PLUS
 
 # Éditer votre UUID root dans board.conf
 nano config/board.conf  # → ROOT_UUID="votre-uuid"
 
-# Build complet kernel 6.19
-./bookworm-sky1-build.sh --kernel 6.19-latest
+# Build complet kernel 6.18 LTS (track recommandé — stable et fiable)
+./bookworm-sky1-build.sh --kernel 6.18-lts
 
-# Build complet kernel 6.19 avec installation
+# Build complet avec installation
 
-./bookworm-sky1-build.sh --kernel 6.19-latest --jobs 8 --install
+./bookworm-sky1-build.sh --kernel 6.18-lts --jobs 8 --install
 
 # Installer
-sudo ./install/install.sh --kernel-dir ~/build/sky1-kernel/linux-6.19
+sudo ./install/install.sh --kernel-dir ~/build/sky1-kernel/linux-6.18.9
 
 # Reboot
 reboot
@@ -110,9 +121,9 @@ bookworm-sky1-kernel/
 │   ├── board.conf                # Config hardware OrangePi 6 Plus
 │   ├── inject-sky1-config.sh     # Injection options Sky1 dans config Gentoo
 │   └── kernels/
-│       ├── 6.19-latest.conf      # ✅ Testé et fonctionnel
-│       ├── 6.18-lts.conf         # Track LTS stable
-│       └── 7.0-latest.conf       # Template pour kernel 7.0
+│       ├── 6_18-lts.conf         # ✅ Track RECOMMANDÉ — stable, fiable
+│       ├── 6_19-latest.conf      # ✅ Testé et fonctionnel
+│       └── 7_0-next.conf         # ✅ Testé — track next, partiellement upstream
 │
 ├── patches/
 │   ├── apply-sky1-patches.sh     # Application patches avec gestion conflits
@@ -177,26 +188,53 @@ les patches Sky1 → erreur de compilation.
 → drivers non disponibles au boot → NVMe inaccessible → timeout initramfs.  
 **Fix:** Forçage en `=y` via `FORCE_BUILTIN` dans `config/kernels/*.conf`
 
+### 6. GRUB — `KERNEL_CMDLINE` de `board.conf` ignoré à l'install
+**Fichier:** `install/install.sh`  
+**Problème:** `install.sh` générait le `menuentry` GRUB avec les paramètres
+kernel codés en dur dans le heredoc, sans jamais référencer la variable
+`KERNEL_CMDLINE` de `board.conf`. Résultat : modifier `board.conf` (par exemple
+pour ajouter `scmi_cpufreq.boost=1`) n'avait strictement aucun effet, même
+après un `--install` complet, puisque GRUB réécrivait toujours la même ligne figée.  
+**Fix:** Les deux `menuentry` (normal + recovery) référencent maintenant
+`${KERNEL_CMDLINE}` — `board.conf` redevient la seule source de vérité pour
+la ligne de commande kernel, cohérent avec le reste du pipeline.
+
+De plus, `install.sh` génère désormais automatiquement `/etc/modules-load.d/`
+et `/etc/modprobe.d/` à partir de deux nouvelles variables `board.conf` :
+```bash
+MODULES_AUTOLOAD="
+scmi-cpufreq
+"
+MODPROBE_OPTIONS="
+scmi_cpufreq:boost=1
+"
+```
+Plus besoin de configuration manuelle post-install pour ces modules.
+
 ---
 
 ## 🖥️ Tracks kernel disponibles
 
 | Track | Base | Statut | Notes |
 |-------|------|--------|-------|
-| `6.19-latest` | Linux 6.19 | ✅ **Testé** | Premier boot confirmé |
-| `6.18-lts` | Linux 6.18 | 🔄 Non testé | Track LTS — plus stable |
-| `7.0-latest` | Linux 7.0 | 📋 Template | Prêt quand 7.0 disponible |
+| `6.18-lts` | Linux 6.18 LTS | ✅ **Recommandé — fiable** | Boot stable, reboot à chaud OK, le plus testé en usage quotidien |
+| `6.19-latest` | Linux 6.19 | ✅ Testé | Boot confirmé, GPU + boost 2.6GHz opérationnels |
+| `7.0-next` | Linux 7.0 | 🧪 Testé — expérimental | Boot confirmé, Sky1 partiellement upstream ; particularité connue : ne supporte pas le reboot à chaud (reboot à froid OK) |
+
+👉 Pour un usage stable au quotidien, partez du track `6.18-lts`. Les tracks
+`6.19-latest` et `7.0-next` suivent de plus près l'upstream Sky1-Linux et sont
+davantage destinés aux tests / contributions.
 
 ### Ajouter un nouveau track
 ```bash
 # Copier un template existant
-cp config/kernels/6.19-latest.conf config/kernels/7.0-latest.conf
+cp config/kernels/6_19-latest.conf config/kernels/8_0-next.conf
 
 # Éditer la version et les paramètres
-nano config/kernels/7.0-latest.conf
+nano config/kernels/8_0-next.conf
 
 # Builder
-./bookworm-sky1-build.sh --kernel 7.0-latest
+./bookworm-sky1-build.sh --kernel 8.0-next
 ```
 
 ---
@@ -205,24 +243,24 @@ nano config/kernels/7.0-latest.conf
 
 ```bash
 # Builder avec sa propre config kernel de base
-./bookworm-sky1-build.sh --kernel 6.19-latest \
+./bookworm-sky1-build.sh --kernel 6.18-lts \
     --base-config /boot/config-$(uname -r)
 
 # Builder sans re-télécharger (sources déjà présentes)
-./bookworm-sky1-build.sh --kernel 6.19-latest --skip-download
+./bookworm-sky1-build.sh --kernel 6.18-lts --skip-download
 
 # Re-compiler seulement (patches et config déjà appliqués)
-./bookworm-sky1-build.sh --kernel 6.19-latest \
+./bookworm-sky1-build.sh --kernel 6.18-lts \
     --skip-download --skip-patches --skip-config
 
 # Build + installation automatique
-./bookworm-sky1-build.sh --kernel 6.19-latest --install
+./bookworm-sky1-build.sh --kernel 6.18-lts --install
 
 # Voir ce qui serait fait sans exécuter
-./bookworm-sky1-build.sh --kernel 6.19-latest --dry-run
+./bookworm-sky1-build.sh --kernel 6.18-lts --dry-run
 
 # Utiliser plus de cores
-./bookworm-sky1-build.sh --kernel 6.19-latest --jobs 16
+./bookworm-sky1-build.sh --kernel 6.18-lts --jobs 16
 ```
 
 ---

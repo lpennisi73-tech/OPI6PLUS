@@ -168,11 +168,33 @@ if $DO_FIRMWARE; then
 fi
 
 # =============================================================================
-# ETAPE 5 — Dracut config + Initramfs
+# ETAPE 5 — Modules autoload (modules-load.d / modprobe.d)
+# =============================================================================
+echo ""
+echo -e "${YELLOW}--- Etape 5: Modules autoload ---${NC}"
+
+if [[ -n "${MODULES_AUTOLOAD:-}" ]]; then
+    for mod in ${MODULES_AUTOLOAD}; do
+        echo "${mod}" > "/etc/modules-load.d/sky1-${mod}.conf"
+        echo -e "${GREEN}OK${NC} modules-load.d: ${mod}"
+    done
+fi
+
+if [[ -n "${MODPROBE_OPTIONS:-}" ]]; then
+    for entry in ${MODPROBE_OPTIONS}; do
+        mod="${entry%%:*}"
+        opts="${entry#*:}"
+        echo "options ${mod} ${opts}" > "/etc/modprobe.d/sky1-${mod}.conf"
+        echo -e "${GREEN}OK${NC} modprobe.d: ${mod} ${opts}"
+    done
+fi
+
+# =============================================================================
+# ETAPE 6 — Dracut config + Initramfs
 # =============================================================================
 if $DO_INITRAMFS; then
     echo ""
-    echo -e "${YELLOW}--- Etape 5: Initramfs ---${NC}"
+    echo -e "${YELLOW}--- Etape 6: Initramfs ---${NC}"
 
     mkdir -p /etc/dracut.conf.d
     cp -v "$PROJECT_DIR/dracut/sky1.conf" /etc/dracut.conf.d/sky1.conf
@@ -193,11 +215,11 @@ if $DO_INITRAMFS; then
 fi
 
 # =============================================================================
-# ETAPE 6 — GRUB
+# ETAPE 7 — GRUB
 # =============================================================================
 if $DO_GRUB; then
     echo ""
-    echo -e "${YELLOW}--- Etape 6: Configuration GRUB ---${NC}"
+    echo -e "${YELLOW}--- Etape 7: Configuration GRUB ---${NC}"
 
     # Determiner le fichier GRUB selon le track
     # 6.19-latest → 06_sky1 | autres → 07_sky1_KFULLVERSION
@@ -229,17 +251,10 @@ menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} ${SKY1_TRACK} (GPU+NPU)" 
     linux /boot/vmlinuz-${KERNEL_FULL_VERSION}-sky1-custom \\
         root=UUID=${ROOT_UUID} ro \\
         loglevel=7 \\
-        console=tty0 \\
-        console=ttyAMA2,115200 \\
-        efi=noruntime \\
-        acpi=off \\
-        clk_ignore_unused \\
         linlon_dp.enable_fb=1 \\
         linlon_dp.enable_render=0 \\
         fbcon=map:01111111 \\
-        plymouth.enable=0 \\
-        rd.plymouth=0 \\
-        rootwait
+        ${KERNEL_CMDLINE}
 
     echo "Loading initial ramdisk ..."
     initrd /boot/initrd.img-${INITRD_VERSION}-sky1-custom
@@ -262,15 +277,8 @@ menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} ${SKY1_TRACK} (Recovery)"
     linux /boot/vmlinuz-${KERNEL_FULL_VERSION}-sky1-custom \\
         root=UUID=${ROOT_UUID} ro \\
         loglevel=8 \\
-        console=tty0 \\
-        console=ttyAMA2,115200 \\
-        efi=noruntime \\
-        acpi=off \\
-        clk_ignore_unused \\
-        plymouth.enable=0 \\
-        rd.plymouth=0 \\
         systemd.unit=rescue.target \\
-        rootwait
+        ${KERNEL_CMDLINE}
 
     echo "Loading initial ramdisk ..."
     initrd /boot/initrd.img-${INITRD_VERSION}-sky1-custom
