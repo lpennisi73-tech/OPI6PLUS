@@ -261,6 +261,7 @@ if ! $SKIP_PATCHES; then
         info "Application de $(ls $PATCHES_SRC/*.patch | wc -l) patches..."
         if ! $DRY_RUN; then
             bash "$APPLY_SCRIPT" "$PATCHES_SRC" 2>&1 | tee -a "$LOG_FILE"
+            [[ ${PIPESTATUS[0]} -eq 0 ]] || die "Échec application des patches — voir $LOG_FILE"
             touch "$KERNEL_SRC_DIR/.sky1-patched"
         fi
         ok "Patches Sky1 appliqués"

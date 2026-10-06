@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # distcc-env.sh — Configuration distcc pour BOOKWORM Sky1 Kernel Builder
-# Usage: source distcc-env.sh && ./bookworm-sky1-build.sh --kernel 7.0-next
+# Usage: source distcc-env.sh && ./bookworm-sky1-build.sh --kernel 6.18.14-lts
 # =============================================================================
 
 DISTCC_HOST="192.168.0.58"
@@ -20,4 +20,4 @@ echo "  Hosts : $DISTCC_HOSTS"
 echo "  Jobs  : $((DISTCC_HOST_JOBS + DISTCC_LOCAL_JOBS))"
 echo ""
 echo "Lance maintenant:"
-echo "  ./bookworm-sky1-build.sh --kernel 7.0-next --install"
+echo "  ./bookworm-sky1-build.sh --kernel 6.18.14-lts --install"

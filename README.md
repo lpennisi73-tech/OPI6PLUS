@@ -60,6 +60,18 @@ Appliqué sur les trois tracks (`6.18-lts`, `6.19-latest`, `7.0-next`) via `PATC
 à partir de `board.conf` (variables `MODULES_AUTOLOAD` et `MODPROBE_OPTIONS`) —
 voir Bug #6 ci-dessous. Plus besoin de commande manuelle.
 
+### USB-C — ports de données non fonctionnels au boot
+Constaté sur `6.18.14-lts` et `6.19-latest` :
+
+- au boot, un `Oops` (NULL pointer dereference) dans `cdns_role_stop()` est déclenché
+  par `rts5453` (contrôleur USB-PD) via `usb_role_switch_set_role()`
+- les contrôleurs `cdns-usbssp` (`9010000`, `9080000`) échouent avec
+  `Device initialization failed with -6` — un disque branché en USB-C n'est pas détecté
+- l'alimentation par USB-C et les ports USB-A (clavier, souris) fonctionnent normalement
+
+Ce défaut ne vient pas des patches du projet. Piste non vérifiée : `CONFIG_USB_CDNSP_GADGET`
+n'est pas activé alors que le DTS semble demander le rôle device sur ces ports.
+
 ### Logiciel
 ```bash
 # Gentoo — outils requis
@@ -91,15 +103,15 @@ cd OPI6PLUS
 # Éditer votre UUID root dans board.conf
 nano config/board.conf  # → ROOT_UUID="votre-uuid"
 
-# Build complet kernel 6.18 LTS (track recommandé — stable et fiable)
-./bookworm-sky1-build.sh --kernel 6.18-lts
+# Build complet kernel 6.18.14 LTS (track recommandé — stable et fiable)
+./bookworm-sky1-build.sh --kernel 6.18.14-lts
 
 # Build complet avec installation
 
-./bookworm-sky1-build.sh --kernel 6.18-lts --jobs 8 --install
+./bookworm-sky1-build.sh --kernel 6.18.14-lts --jobs 8 --install
 
 # Installer
-sudo ./install/install.sh --kernel-dir ~/build/sky1-kernel/linux-6.18.9
+sudo ./install/install.sh --kernel-dir ~/build/sky1-kernel/linux-6.18.14
 
 # Reboot
 reboot
@@ -121,9 +133,10 @@ bookworm-sky1-kernel/
 │   ├── board.conf                # Config hardware OrangePi 6 Plus
 │   ├── inject-sky1-config.sh     # Injection options Sky1 dans config Gentoo
 │   └── kernels/
-│       ├── 6_18-lts.conf         # ✅ Track RECOMMANDÉ — stable, fiable
-│       ├── 6_19-latest.conf      # ✅ Testé et fonctionnel
-│       └── 7_0-next.conf         # ✅ Testé — track next, partiellement upstream
+│       ├── 6.18.14-lts.conf      # ✅ Track RECOMMANDÉ — LTS 6.18.14 (correctifs de sécurité)
+│       ├── 6.18-lts.conf         # LTS 6.18.9 (version précédente)
+│       ├── 6.19-latest.conf      # ✅ Testé et fonctionnel
+│       └── 7.0-next.conf         # ✅ Testé — track next, partiellement upstream
 │
 ├── patches/
 │   ├── apply-sky1-patches.sh     # Application patches avec gestion conflits
@@ -217,21 +230,23 @@ Plus besoin de configuration manuelle post-install pour ces modules.
 
 | Track | Base | Statut | Notes |
 |-------|------|--------|-------|
-| `6.18-lts` | Linux 6.18 LTS | ✅ **Recommandé — fiable** | Boot stable, reboot à chaud OK, le plus testé en usage quotidien |
+| `6.18.14-lts` | Linux 6.18.14 LTS | ✅ **Recommandé — fiable** | Dernière stable de la série LTS 6.18 testée (correctifs de sécurité et de bugs), boot stable, reboot à chaud OK |
+| `6.18-lts` | Linux 6.18.9 LTS | ✅ Testé | Version précédente de la série LTS, conservée pour comparaison |
 | `6.19-latest` | Linux 6.19 | ✅ Testé | Boot confirmé, GPU + boost 2.6GHz opérationnels |
 | `7.0-next` | Linux 7.0 | 🧪 Testé — expérimental | Boot confirmé, Sky1 partiellement upstream ; particularité connue : ne supporte pas le reboot à chaud (reboot à froid OK) |
 
-👉 Pour un usage stable au quotidien, partez du track `6.18-lts`. Les tracks
+👉 Pour un usage stable au quotidien, partez du track `6.18.14-lts` : la série LTS 6.18.x
+reçoit des correctifs de sécurité réguliers, mieux vaut suivre le dernier point release. Les tracks
 `6.19-latest` et `7.0-next` suivent de plus près l'upstream Sky1-Linux et sont
 davantage destinés aux tests / contributions.
 
 ### Ajouter un nouveau track
 ```bash
 # Copier un template existant
-cp config/kernels/6_19-latest.conf config/kernels/8_0-next.conf
+cp config/kernels/6.19-latest.conf config/kernels/8.0-next.conf
 
 # Éditer la version et les paramètres
-nano config/kernels/8_0-next.conf
+nano config/kernels/8.0-next.conf
 
 # Builder
 ./bookworm-sky1-build.sh --kernel 8.0-next
