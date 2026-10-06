@@ -52,7 +52,7 @@ démarrage du driver `scmi-cpufreq` — plus besoin d'attendre un BIOS update CI
 Validé stable sous charge compile complète (12 cores) : 2.6GHz maintenu sans
 throttling jusqu'à ~73°C.
 
-Appliqué sur les trois tracks (`6.18-lts`, `6.19-latest`, `7.0-next`) via `PATCHES_EXTRA`.
+Appliqué sur tous les tracks (`6.18.14-lts`, `6.18-lts`, `6.19-latest`, `7.0-next`) via `PATCHES_EXTRA`.
 
 ### cpufreq — chargement et options automatisés
 `scmi-cpufreq` est en `=m`. Le chargement au boot et l'activation du boost
@@ -60,17 +60,26 @@ Appliqué sur les trois tracks (`6.18-lts`, `6.19-latest`, `7.0-next`) via `PATC
 à partir de `board.conf` (variables `MODULES_AUTOLOAD` et `MODPROBE_OPTIONS`) —
 voir Bug #6 ci-dessous. Plus besoin de commande manuelle.
 
-### USB-C — ports de données non fonctionnels au boot
-Constaté sur `6.18.14-lts` et `6.19-latest` :
+### USB-C — ports de données (corrigé sur 6.18.14-lts)
+Avant correction (constaté sur `6.18.14-lts` et `6.19-latest`) :
 
-- au boot, un `Oops` (NULL pointer dereference) dans `cdns_role_stop()` est déclenché
+- au boot, un `Oops` (NULL pointer dereference) dans `cdns_role_stop()` était déclenché
   par `rts5453` (contrôleur USB-PD) via `usb_role_switch_set_role()`
-- les contrôleurs `cdns-usbssp` (`9010000`, `9080000`) échouent avec
-  `Device initialization failed with -6` — un disque branché en USB-C n'est pas détecté
-- l'alimentation par USB-C et les ports USB-A (clavier, souris) fonctionnent normalement
+- les contrôleurs `cdns-usbssp` (`9010000`, `9080000`) échouaient avec
+  `Device initialization failed with -6`
 
-Ce défaut ne vient pas des patches du projet. Piste non vérifiée : `CONFIG_USB_CDNSP_GADGET`
-n'est pas activé alors que le DTS semble demander le rôle device sur ces ports.
+**Correctif appliqué sur `6.18.14-lts`** : option `USB_CDNSP_GADGET` forcée en built-in
+(`FORCE_BUILTIN`) + patch local `9005-usb-cdns3-guard-null-role-in-cdns_role_stop`
+(ignore un rôle USB pas encore initialisé au lieu de planter). Résultat : plus d'`Oops`,
+`rts5453` termine son initialisation, les deux contrôleurs ont leur bus USB, et une clé
+USB branchée via un hub USB 2 sur un port USB-C est détectée et montée (liaison du hub
+à 480M). La voie SuperSpeed (USB 3) des ports USB-C n'a pas encore été testée.
+
+Limites connues :
+- un disque branché directement en USB-C n'a pas été détecté lors d'un test (cause non
+  identifiée : alimentation du disque ou négociation Type-C) — à retester
+- `6.19-latest` et `7.0-next` n'ont pas encore été retestés avec ce correctif
+- l'alimentation de la carte par USB-C n'est pas concernée
 
 ### Logiciel
 ```bash
@@ -170,12 +179,15 @@ bookworm-sky1-kernel/
 Ces corrections ont été découvertes lors du premier build Gentoo sur ce hardware
 et sont appliquées automatiquement par le script.
 
-### 1. Patch 0118 — Panthor ACE-Lite coherency API
+### 1. Patch panthor ACE-Lite — hunk #1 de `panthor_gpu.c`
 **Fichier:** `drivers/gpu/drm/panthor/panthor_gpu.c`  
-**Problème:** Le hunk #1 du patch 0118 échoue sur kernel 6.19 car
-`panthor_gpu_coherency_set()` utilise encore l'ancienne API `ptdev->coherent`
-au lieu de `ptdev->coherency_mode`.  
-**Fix:** `patches/fixes/0118-panthor-coherency-fix.py`
+**Problème:** le patch panthor « add ACE-Lite coherency » (numéro 0117 sur 6.18.x, 0118 sur 6.19)
+modifie `panthor_gpu_coherency_set()`. Sur 6.18.x il s'applique tel quel. Sur 6.19, la base
+utilise déjà `ptdev->coherency_mode` et le hunk #1 de `panthor_gpu.c` ne s'applique pas.  
+**Fix:** géré dans `patches/apply-sky1-patches.sh`, qui reconnaît le patch par son nom : si le patch
+s'applique tel quel, rien n'est corrigé ; sinon le hunk #1 est ignoré et les autres hunks sont
+appliqués. Limite connue : sur 6.19, le bit `SHAREABLE_CACHE` du hunk n'est donc pas programmé
+(le GPU démarre et fonctionne normalement).
 
 ### 2. PCIe Sky1 — SError sur slot vide
 **Fichier:** `drivers/pci/controller/cadence/pci-sky1.c`  
@@ -230,10 +242,10 @@ Plus besoin de configuration manuelle post-install pour ces modules.
 
 | Track | Base | Statut | Notes |
 |-------|------|--------|-------|
-| `6.18.14-lts` | Linux 6.18.14 LTS | ✅ **Recommandé — fiable** | Dernière stable de la série LTS 6.18 testée (correctifs de sécurité et de bugs), boot stable, reboot à chaud OK |
+| `6.18.14-lts` | Linux 6.18.14 LTS | ✅ **Recommandé — fiable** | Dernière stable de la série LTS 6.18 testée (correctifs de sécurité et de bugs), boot stable |
 | `6.18-lts` | Linux 6.18.9 LTS | ✅ Testé | Version précédente de la série LTS, conservée pour comparaison |
 | `6.19-latest` | Linux 6.19 | ✅ Testé | Boot confirmé, GPU + boost 2.6GHz opérationnels |
-| `7.0-next` | Linux 7.0 | 🧪 Testé — expérimental | Boot confirmé, Sky1 partiellement upstream ; particularité connue : ne supporte pas le reboot à chaud (reboot à froid OK) |
+| `7.0-next` | Linux 7.0 | 🧪 Testé — expérimental | Boot confirmé, Sky1 partiellement upstream |
 
 👉 Pour un usage stable au quotidien, partez du track `6.18.14-lts` : la série LTS 6.18.x
 reçoit des correctifs de sécurité réguliers, mieux vaut suivre le dernier point release. Les tracks
