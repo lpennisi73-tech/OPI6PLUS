@@ -42,3 +42,5 @@ linux-*/.sky1-patched
 .env
 *.token
 *.secret
+
+CLAUDE.md

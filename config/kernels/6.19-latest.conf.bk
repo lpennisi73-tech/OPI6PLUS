@@ -1,21 +1,26 @@
 # =============================================================================
-# 7.0-next.conf — Kernel 7.0 track Next
+# 6.19-latest.conf — Kernel 6.19 track Latest
 # BOOKWORM Sky1 Kernel Builder
 # =============================================================================
 
-KERNEL_VERSION="7.0"
-KERNEL_FULL_VERSION="7.0"
-KERNEL_TARBALL="linux-7.0.tar.xz"
-KERNEL_URL="https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.0.tar.xz"
+# Version kernel
+KERNEL_VERSION="6.19"
+KERNEL_FULL_VERSION="6.19.0"
+KERNEL_TARBALL="linux-6.19.tar.xz"
+KERNEL_URL="https://cdn.kernel.org/pub/linux/kernel/v6.x/${KERNEL_TARBALL}"
 
-SKY1_TRACK="next"
-SKY1_PATCHES_DIR="patches-next"
-SKY1_CONFIG="config/config.sky1-next"
+# Sky1-Linux track
+SKY1_TRACK="latest"
+SKY1_PATCHES_DIR="patches-latest"
+SKY1_CONFIG="config/config.sky1-latest"
 SKY1_REPO="https://github.com/Sky1-Linux/linux-sky1.git"
 
+# Nom du kernel compilé
 KERNEL_LOCALVERSION="-sky1-custom"
 KERNEL_BUILD_NAME="${KERNEL_FULL_VERSION}${KERNEL_LOCALVERSION}"
 
+# Options kernel critiques à forcer en built-in =y pour ce track
+# (incompatibilités découvertes avec config Gentoo complète)
 FORCE_BUILTIN="
 ARCH_CIX
 PCI_SKY1
@@ -33,33 +38,32 @@ NVME_CORE
 BLK_DEV_NVME
 TYPEC
 GPIO_CADENCE
-USB_CDNSP_GADGET
 "
 
+# Options à désactiver (incompatibles avec patches Sky1)
 FORCE_DISABLED="
 PCIE_CADENCE_PLAT
 PCIE_CADENCE_PLAT_HOST
 CRYPTO_ECRDSA
 "
 
+# Patches fixes spécifiques à ce track
 FIXES="
+0118-panthor-coherency-fix
 pci-sky1-link-down-guard
 dts-disable-empty-pcie-slots
 dts-add-cpu-thermal-zones
 dts-disable-unused-dpu
-npu-sky1-pm-runtime-fix
 "
 
 PATCHES_EXTRA="
-9001-trilin-dptx-propagate-of_node-to-audio-pdev
-9002-fix-amvx-ubsan-flexible-array
-9003-fix-amvx-vb2-lock
 9004-cpufreq-scmi-boost-param-from-init
-9005-usb-cdns3-guard-null-role-in-cdns_role_stop
 "
 
+
+# Statut
 STATUS="stable"
 TESTED="yes"
 TESTED_BY="Kenny/BOOKWORM"
-TESTED_DATE="2026-04-15"
-NOTES="Track Next — 30 patches pour Linux 7.0. Sky1 partiellement upstream."
+TESTED_DATE="2026-04-13"
+NOTES="Premier boot Gentoo confirmé — GPU Mali-G720 opérationnel"

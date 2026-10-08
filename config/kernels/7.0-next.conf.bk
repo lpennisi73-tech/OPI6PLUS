@@ -33,7 +33,6 @@ NVME_CORE
 BLK_DEV_NVME
 TYPEC
 GPIO_CADENCE
-USB_CDNSP_GADGET
 "
 
 FORCE_DISABLED="
@@ -55,7 +54,6 @@ PATCHES_EXTRA="
 9002-fix-amvx-ubsan-flexible-array
 9003-fix-amvx-vb2-lock
 9004-cpufreq-scmi-boost-param-from-init
-9005-usb-cdns3-guard-null-role-in-cdns_role_stop
 "
 
 STATUS="stable"
