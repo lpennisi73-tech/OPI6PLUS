@@ -44,3 +44,4 @@ linux-*/.sky1-patched
 *.secret
 
 CLAUDE.md
+*.bk
