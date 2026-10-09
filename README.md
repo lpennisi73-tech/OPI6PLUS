@@ -107,6 +107,18 @@ Limites connues :
   `echo xhci-hcd.<N>.auto > /sys/bus/platform/drivers/xhci-hcd/{unbind,bind}`
 - Cause racine non encore identifiée.
 
+### Un DTB par kernel
+`install.sh` installe le devicetree sous `/boot/dtb/sky1-orangepi-6-plus-<version>.dtb` et chaque entrée GRUB
+pointe sur le sien. Avant, un fichier unique était partagé : le dernier kernel installé écrasait celui des
+autres, et un kernel démarrait avec le DTB d'un autre (perte de tous les contrôleurs USB constatée sur
+6.18.14 après installation de 6.19 et 7.0). Les trois tracks ont été validés avec leur DTB propre
+(USB, hub USB-C en SuperSpeed, GPU Panthor, boost 2.6 GHz).
+
+### NPU sur 7.0-next
+Au chargement du module `armchina_npu` sur 7.0-next, un avertissement noyau apparaît dans `__setup_irq`
+pendant le `probe` (IRQ 109). Le NPU se déclare quand même (`/dev/aipu`, 3 cœurs) et le système reste
+stable. Absent sur 6.18.14 et 6.19. Cause non analysée (probablement l'API des IRQ du noyau 7.0).
+
 ### GNOME 49 / OpenRC
 - Voir `scripts-addons/tips-gnome-49-openrc.md` et `scripts-addons/fix-gnome49-openrc.sh`.
 
