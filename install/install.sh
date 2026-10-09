@@ -126,7 +126,13 @@ mkdir -p /boot/dtb
 
 [[ ! -f "$DTB_SRC" ]] && { echo -e "${RED}ERREUR: $DTB_SRC introuvable${NC}"; exit 1; }
 
+# bookworm: un DTB par kernel (sinon le dernier installé écrase celui des autres
+# et un kernel peut démarrer avec le devicetree d'un autre -> plus de contrôleur USB)
+DTB_LEGACY="$DTB_PATH"
+DTB_PATH="/boot/dtb/${DTB_NAME%.dtb}-${KERNEL_FULL_VERSION}.dtb"
 cp -v "$DTB_SRC" "$DTB_PATH"
+# copie de compatibilité pour les entrées GRUB des autres kernels pas encore réinstallées
+cp -v "$DTB_SRC" "$DTB_LEGACY"
 echo -e "${GREEN}OK${NC} DTB: $DTB_PATH ($(du -h $DTB_PATH | cut -f1))"
 
 # =============================================================================
