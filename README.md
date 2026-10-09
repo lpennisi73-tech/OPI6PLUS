@@ -37,6 +37,23 @@ panthor 15000000.gpu: [drm] CSF FW using interface v3.13.0
 
 
 
+### Logiciel
+```bash
+# Gentoo — outils requis
+emerge dev-vcs/git sys-devel/bc app-arch/xz-utils \
+       sys-devel/flex sys-devel/bison dev-lang/python
+```
+
+### Firmware Mali (requis pour le GPU)
+```bash
+# Télécharger depuis Sky1-Linux
+git clone https://github.com/Sky1-Linux/sky1-firmware.git
+mkdir -p /lib/firmware/arm/mali/arch12.8/
+cp sky1-firmware/mali_csffw.bin /lib/firmware/arm/mali/arch12.8/
+```
+
+---
+
 ## ⚠️ Limitations connues
 
 ### ✅ RÉSOLU — CPU Fréquences (anciennement limitées par firmware)
@@ -71,13 +88,10 @@ Avant correction (constaté sur `6.18.14-lts` et `6.19-latest`) :
 **Correctif appliqué sur `6.18.14-lts`** : option `USB_CDNSP_GADGET` forcée en built-in
 (`FORCE_BUILTIN`) + patch local `9005-usb-cdns3-guard-null-role-in-cdns_role_stop`
 (ignore un rôle USB pas encore initialisé au lieu de planter). Résultat : plus d'`Oops`,
-`rts5453` termine son initialisation, les deux contrôleurs ont leur bus USB, et une clé
-USB branchée via un hub USB 2 sur un port USB-C est détectée et montée (liaison du hub
-à 480M). La voie SuperSpeed (USB 3) des ports USB-C n'a pas encore été testée.
+`rts5453` termine son initialisation, les deux contrôleurs ont leur bus USB, et un hub USB 3 branché sur un port USB-C est détecté en SuperSpeed (5 Gbps), avec une clé USB montée et lue à ~135 MB/s.
 
 Limites connues :
-- un disque branché directement en USB-C n'a pas été détecté lors d'un test (cause non
-  identifiée : alimentation du disque ou négociation Type-C) — à retester
+- un boîtier disque 10 Gbps branché directement en USB-C n'est pas détecté (voir « USB-C : stockage 10 Gbps » plus bas) ; le même boîtier fonctionne sur un port USB-A
 - `6.19-latest` et `7.0-next` n'ont pas encore été retestés avec ce correctif
 - l'alimentation de la carte par USB-C n'est pas concernée
 
@@ -97,20 +111,6 @@ Limites connues :
 - Voir `scripts-addons/tips-gnome-49-openrc.md` et `scripts-addons/fix-gnome49-openrc.sh`.
 
 
-### Logiciel
-```bash
-# Gentoo — outils requis
-emerge dev-vcs/git sys-devel/bc app-arch/xz-utils \
-       sys-devel/flex sys-devel/bison dev-lang/python
-```
-
-### Firmware Mali (requis pour le GPU)
-```bash
-# Télécharger depuis Sky1-Linux
-git clone https://github.com/Sky1-Linux/sky1-firmware.git
-mkdir -p /lib/firmware/arm/mali/arch12.8/
-cp sky1-firmware/mali_csffw.bin /lib/firmware/arm/mali/arch12.8/
-```
 
 ---
 
@@ -178,6 +178,11 @@ bookworm-sky1-kernel/
 │
 ├── dracut/
 │   └── sky1.conf                 # Config initramfs dracut
+│
+├── scripts-addons/
+│   ├── fix-gnome49-openrc.sh     # Correctifs GNOME 49 / OpenRC (bus, son, activation D-Bus, skel)
+│   ├── tips-gnome-49-openrc.md   # Détail des correctifs GNOME/OpenRC
+│   └── usb-rebind-bus10          # Secours USB (contrôleur du KVM)
 │
 ├── install/
 │   └── install.sh                # Installation kernel + GRUB + initramfs

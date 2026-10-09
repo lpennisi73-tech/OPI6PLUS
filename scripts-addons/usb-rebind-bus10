@@ -1,0 +1,9 @@
+#!/bin/sh
+# bookworm: ré-initialise le contrôleur USB (adresse 9290000 = bus 10, port du KVM)
+C=$(ls -d /sys/devices/platform/soc@0/9280310.usb/9290000.usb-controller/xhci-hcd.*.auto 2>/dev/null | head -n1)
+[ -n "$C" ] || { echo "contrôleur 9290000 introuvable"; exit 1; }
+D=$(basename "$C")
+echo "rebind $D"
+echo "$D" > /sys/bus/platform/drivers/xhci-hcd/unbind
+sleep 2
+echo "$D" > /sys/bus/platform/drivers/xhci-hcd/bind
