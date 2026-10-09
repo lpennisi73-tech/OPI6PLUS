@@ -81,6 +81,22 @@ Limites connues :
 - `6.19-latest` et `7.0-next` n'ont pas encore été retestés avec ce correctif
 - l'alimentation de la carte par USB-C n'est pas concernée
 
+
+### USB-C : stockage 10 Gbps (testé sur 6.18.14-lts)
+- Port USB-C avec un **hub USB 3** : détecté en SuperSpeed (5 Gbps), clé USB lue à ~135 MB/s, stable plus de 15 minutes.
+- Port USB-C avec un **boîtier disque ASMedia 10 Gbps** (Ugreen, 174c:235c, disque 2,5" auto-alimenté) : le partenaire Type-C est enregistré (`rts5453 ... role=host pwr=source orient=reverse`) mais **aucun périphérique n'apparaît**, même pas en USB 2. Désactiver la veille du contrôleur (`power/control=on`) ne change rien.
+- Le même boîtier sur un port **USB-A** fonctionne en SuperSpeed+ 10 Gbps (~120 MB/s avec un disque mécanique) : le disque et le boîtier ne sont pas en cause.
+- Piste : routage/orientation du PHY (`cix-usbdp-phy`, `sky1_udphy_init: typec dir=0x2`). À creuser (test de l'autre orientation et de l'autre port USB-C non encore faits).
+
+### USB : contrôleur du port branché au KVM (bus USB 2, adresse 9290000)
+- Après une bascule du KVM (cycle DP débranché/rebranché), le contrôleur xHCI peut ne plus voir clavier et souris. Contournement : ré-initialiser le contrôleur par son adresse (les numéros `xhci-hcd.N.auto` changent d'un boot à l'autre) :
+  `echo xhci-hcd.<N>.auto > /sys/bus/platform/drivers/xhci-hcd/{unbind,bind}`
+- Cause racine non encore identifiée.
+
+### GNOME 49 / OpenRC
+- Voir `scripts-addons/tips-gnome-49-openrc.md` et `scripts-addons/fix-gnome49-openrc.sh`.
+
+
 ### Logiciel
 ```bash
 # Gentoo — outils requis
