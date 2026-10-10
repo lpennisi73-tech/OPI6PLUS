@@ -3,16 +3,21 @@
 # Désactiver les contrôleurs display inutilisés dans le DTS OrangePi 6 Plus
 #
 # Contexte:
-#   Le DTS active 5 paires DPU/DP (dpu0-4 / dp0-4) mais l'OrangePi 6 Plus
-#   n'a qu'un seul écran connecté sur dp3 (141b4000) — hpd=1.
-#   Les autres dp sans écran provoquent une boucle DRM infinie avec GDM.
+#   Le DTS active 5 paires DPU/DP (dpu0-4 / dp0-4). L'OrangePi 6 Plus n'a
+#   que deux sorties utilisables : DP natif (dp3) et HDMI via le convertisseur
+#   Parade PS185HDM (dp4 → hdmi-connector). Les autres dp sans écran provoquent
+#   une boucle DRM infinie avec GDM.
 #
 #   Mapping:
-#     dpu0/dp0 (14010000/14064000) — hpd=0 → DISABLED
-#     dpu1/dp1 (14080000/140d4000) — hpd=0 → DISABLED
-#     dpu2/dp2 (140f0000/14144000) — hpd=0 → DISABLED
-#     dpu3/dp3 (14160000/141b4000) — hpd=1 → ACTIF ✅
-#     dpu4/dp4 (141d0000/14224000) — hpd=0 → DISABLED
+#     dpu0/dp0 (14010000/14064000) — DISABLED
+#     dpu1/dp1 (14080000/140d4000) — DISABLED
+#     dpu2/dp2 (140f0000/14144000) — DISABLED
+#     dpu3/dp3 (14160000/141b4000) — ACTIF (DP natif)
+#     dpu4/dp4 (141d0000/14224000) — ACTIF (HDMI via ps185hdm, patch 9006)
+#
+#   Audio: les dai-links dptx0_audio / dptx1_audio pointent vers des DP
+#   désactivés ; ils doivent l'être aussi, sinon la carte son (cix,sky1-sound-card)
+#   reste en EPROBE_DEFER. dptx3_audio (DP) et dptx4_audio (HDMI) restent actifs.
 #
 # Fichier: arch/arm64/boot/dts/cix/sky1-orangepi-6-plus.dts
 # =============================================================================
@@ -21,11 +26,11 @@ import sys
 
 TARGET = "arch/arm64/boot/dts/cix/sky1-orangepi-6-plus.dts"
 
-DPU_DISABLE = ["&dpu0 {", "&dpu1 {", "&dpu2 {", "&dpu4 {"]
+DPU_DISABLE = ["&dpu0 {", "&dpu1 {", "&dpu2 {"]
 
 DP_DISABLE_BLOCK = """
-/* Disable unused DP controllers — only dp3 (141b4000) has display connected
- * hpd=1 only on dp3 — others cause DRM probe loop with GDM
+/* Disable unused DP controllers and their audio links.
+ * Kept: dp3 (native DP) and dp4 (HDMI via ps185hdm).
  * Added by BOOKWORM Sky1 Kernel Builder
  */
 &dp0 {
@@ -40,7 +45,19 @@ DP_DISABLE_BLOCK = """
 \tstatus = "disabled";
 };
 
+&dpu4 {
+\tstatus = "okay";
+};
+
 &dp4 {
+\tstatus = "okay";
+};
+
+&dptx0_audio {
+\tstatus = "disabled";
+};
+
+&dptx1_audio {
 \tstatus = "disabled";
 };
 """
@@ -55,8 +72,8 @@ def apply_fix():
         sys.exit(1)
 
     # Vérifier si déjà appliqué
-    if "&dp0 {" in content and "disabled" in content.split("&dp0 {")[-1][:80]:
-        print("SKIP — DP déjà désactivés")
+    if "&dptx0_audio {" in content:
+        print("SKIP — DP/audio déjà désactivés")
         sys.exit(0)
 
     changed_dpu = []
@@ -87,8 +104,8 @@ def apply_fix():
     print("DPU désactivés:")
     for c in changed_dpu:
         print(c)
-    print("DP désactivés: &dp0, &dp1, &dp2, &dp4")
-    print("Conservé: dpu3 + dp3 (141b4000) — hpd=1 HDMI ✅")
+    print("DP désactivés: &dp0, &dp1, &dp2 ; audio: &dptx0_audio, &dptx1_audio")
+    print("Conservés: dpu3+dp3 (DP natif), dpu4+dp4 (HDMI via ps185hdm)")
 
 if __name__ == "__main__":
     apply_fix()

@@ -1,0 +1,26 @@
+diff '--color=auto' -ruN a/Documentation/devicetree/bindings/display/bridge/simple-bridge.yaml b/Documentation/devicetree/bindings/display/bridge/simple-bridge.yaml
+--- a/Documentation/devicetree/bindings/display/bridge/simple-bridge.yaml	2026-10-10 14:28:30.347519387 +0200
++++ b/Documentation/devicetree/bindings/display/bridge/simple-bridge.yaml	2026-10-10 14:28:30.399003133 +0200
+@@ -28,6 +28,7 @@
+       - enum:
+           - adi,adv7123
+           - dumb-vga-dac
++          - parade,ps185hdm
+           - radxa,ra620
+           - realtek,rtd2171
+           - ti,opa362
+diff '--color=auto' -ruN a/drivers/gpu/drm/bridge/simple-bridge.c b/drivers/gpu/drm/bridge/simple-bridge.c
+--- a/drivers/gpu/drm/bridge/simple-bridge.c	2026-10-10 14:28:30.344186167 +0200
++++ b/drivers/gpu/drm/bridge/simple-bridge.c	2026-10-10 14:28:30.397992608 +0200
+@@ -262,6 +262,11 @@
+ 			.connector_type = DRM_MODE_CONNECTOR_VGA,
+ 		},
+ 	}, {
++		.compatible = "parade,ps185hdm",
++		.data = &(const struct simple_bridge_info) {
++			.connector_type = DRM_MODE_CONNECTOR_HDMIA,
++		},
++	}, {
+ 		.compatible = "radxa,ra620",
+ 		.data = &(const struct simple_bridge_info) {
+ 			.connector_type = DRM_MODE_CONNECTOR_HDMIA,
