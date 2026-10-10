@@ -57,3 +57,15 @@ Correctif : service utilisateur `bookworm-user-dirs` (gnome-session), qui charge
 Installation : `sudo ./fix-gnome49-openrc.sh --all-users --skel`.
 
 Note Flatpak (Firefox, etc.) : le sandbox voit `~/Téléchargements` seulement si le dossier existe au premier lancement. Avec `bookworm-user-dirs` c'est le cas pour tout nouvel utilisateur. Pour un utilisateur ancien dont les dossiers ont été créés après coup : `flatpak kill <app>` puis relancer l'application. Si besoin, `flatpak override --user --filesystem=xdg-download <app>`.
+
+## 7. HDMI et audio DP/HDMI (OrangePi 6 Plus, validé le 2026-10-10)
+Image : la sortie HDMI passe par le convertisseur DP→HDMI Parade PS185HDM (dp4/dpu4). Le noyau 6.18 ne connaît pas `parade,ps185hdm` dans simple-bridge : patch local 9006 (6.18-lts et 6.18.14-lts uniquement ; 6.19 et 7.0 l'ont déjà en amont). `dts-disable-unused-dpu.py` garde dpu3/dp3 (DP natif) et dpu4/dp4 (HDMI), désactive dp0/1/2 et les liens audio dptx0/1_audio (sinon la carte son reste en EPROBE_DEFER).
+Son : carte ALSA `cix_sky1`, périphérique 0 = DP natif, 1 = HDMI. Le profil par défaut (`output:stereo-fallback`) n'expose que le périphérique 0 ; il faut le profil `pro-audio` pour avoir le HDMI. Règles WirePlumber (config/wireplumber/, installées par install.sh, étape 5b) :
+- 51-sky1-hdmi-profile.conf : profil pro-audio par défaut (device.profile.priority.rules). Un profil déjà mémorisé dans ~/.local/state/wireplumber/ passe avant la règle.
+- 52-sky1-hdmi-buffer.conf : node.force-quantum = 4096 sur les deux sinks (à 1024 : des milliers de xruns, son haché) et noms « DisplayPort » / « HDMI ».
+Pièges de test :
+- `pw-play --target` attend le NOM du nœud (alsa_output.platform-sound.pro-output-1), pas l'ID de `wpctl status` ; un ID inconnu retombe sur le sink par défaut (faux « pas de son »).
+- Le bouton « Tester » de GNOME ne marche pas avec Pro Audio (pas de disposition de haut-parleurs) : tester avec pw-play ou une vidéo.
+- Le plugin ALSA « pipewire » n'est pas nécessaire pour GNOME/Firefox ; `speaker-test -D pipewire` échoue sans lui, c'est normal.
+- Le pilote DP audio était sain : en direct sur hw:1,1 (S16 ou S32) tout fonctionne ; le défaut venait de PipeWire (cible et quantum).
+Contrôle : `wpctl status` doit lister les sinks « DisplayPort » et « HDMI » sans réglage manuel pour un nouvel utilisateur.
