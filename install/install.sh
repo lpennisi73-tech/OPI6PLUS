@@ -196,6 +196,20 @@ if [[ -n "${MODPROBE_OPTIONS:-}" ]]; then
 fi
 
 # =============================================================================
+# ETAPE 5b — WirePlumber : audio DP / HDMI (profil Pro Audio, quantum, noms)
+# =============================================================================
+if [[ -d "$PROJECT_DIR/config/wireplumber" ]]; then
+    echo ""
+    echo -e "${YELLOW}--- Etape 5b: WirePlumber (audio DP/HDMI) ---${NC}"
+    mkdir -p /etc/wireplumber/wireplumber.conf.d
+    for f in "$PROJECT_DIR"/config/wireplumber/*.conf; do
+        [[ -f "$f" ]] || continue
+        install -m 644 "$f" "/etc/wireplumber/wireplumber.conf.d/$(basename "$f")"
+        echo -e "${GREEN}OK${NC} wireplumber: $(basename "$f")"
+    done
+fi
+
+# =============================================================================
 # ETAPE 6 — Dracut config + Initramfs
 # =============================================================================
 if $DO_INITRAMFS; then
