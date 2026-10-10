@@ -257,9 +257,7 @@ menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} ${SKY1_TRACK} (GPU+NPU)" 
     linux /boot/vmlinuz-${KERNEL_FULL_VERSION}-sky1-custom \\
         root=UUID=${ROOT_UUID} ro \\
         loglevel=7 \\
-        linlon_dp.enable_fb=1 \\
-        linlon_dp.enable_render=0 \\
-        fbcon=map:01111111 \\
+        fbcon=map:1 \\
         ${KERNEL_CMDLINE}
 
     echo "Loading initial ramdisk ..."
@@ -283,7 +281,7 @@ menuentry "Sky1 ${BOARD_NAME} - ${KERNEL_FULL_VERSION} ${SKY1_TRACK} (Recovery)"
     linux /boot/vmlinuz-${KERNEL_FULL_VERSION}-sky1-custom \\
         root=UUID=${ROOT_UUID} ro \\
         loglevel=8 \\
-        systemd.unit=rescue.target \\
+        single \\
         ${KERNEL_CMDLINE}
 
     echo "Loading initial ramdisk ..."

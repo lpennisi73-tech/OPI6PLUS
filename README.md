@@ -389,3 +389,11 @@ open-source complexes accessibles à tous.
 
 *Premier boot Gentoo 6.19 Sky1 sur OrangePi 6 Plus — 13 Avril 2026* 🚀
 *Premier boot Gentoo7.0 Sky1 sur OrangePi 6 Plus — 19 Avril 2026* 🚀
+
+## Console et framebuffer (boot)
+
+- `fbcon=map:1` : toutes les consoles virtuelles sont liées à `fb1` (le fbdev DRM `linlondpdrmfb`, en 4K). `fb0` (efifb) reste présent mais n'est plus affiché, donc l'ancien `fbcon=map:01111111` donnait un VT1 noir.
+- `console=ttyAMA2,115200 console=tty0` : le **dernier** `console=` devient `/dev/console`. Avec `tty0` en dernier, les messages OpenRC s'affichent à l'écran. La console série reste active et `inittab` garde un agetty dédié sur `ttyAMA2` (ligne `s2`).
+- `linlon_dp.enable_fb` et `linlon_dp.enable_render` sont des paramètres inconnus (ignorés) et ont été supprimés.
+- Entrée Recovery : `single` remplace `systemd.unit=rescue.target`, qui est sans effet sous OpenRC.
+- Le passage GDM ↔ console (`Ctrl+Alt+F2`) est instantané. Testé sur 6.18.14, 6.19.0 et 7.0.0.

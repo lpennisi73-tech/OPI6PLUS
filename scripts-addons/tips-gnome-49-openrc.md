@@ -41,3 +41,10 @@ Diagnostic :
 Fix : service utilisateur /etc/user/init.d/bookworm-activation-env (créé par fix-gnome49-openrc.sh) qui attend le socket wayland-N et gnome-shell, relit son environ et appelle dbus-update-activation-environment, en arrière-plan. Activé dans le runlevel gnome-session de chaque utilisateur et dans /etc/skel :
     rc-update -U add bookworm-activation-env gnome-session
 Ne pas ajouter de start_post() dans gnome-shell-wayland : ça a cassé la session.
+
+## Fix 5 : console texte et services OpenRC invisibles à l'écran
+
+Symptôme : un framebuffer existe mais OpenRC n'affiche rien, ou VT1 reste noir.
+Cause : `/dev/console` est le dernier `console=` de la cmdline (ici `ttyAMA2`), et `fbcon=map:01111111` liait VT1 à `fb0` (efifb, non affiché).
+Correctif : `fbcon=map:1` et `console=ttyAMA2,115200 console=tty0`.
+Contrôle : `cat /proc/consoles` doit finir par `tty0`.
