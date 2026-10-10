@@ -1,0 +1,26 @@
+--- a/drivers/usb/cdns3/host.c
++++ b/drivers/usb/cdns3/host.c
+@@ -140,9 +140,21 @@
+ 
+ static int cdns_host_resume(struct cdns *cdns, bool power_lost)
+ {
+-	struct usb_hcd *hcd = platform_get_drvdata(cdns->host_dev);
+-	struct xhci_plat_priv *priv = hcd_to_xhci_priv(hcd);
++	struct usb_hcd *hcd;
++	struct xhci_plat_priv *priv;
+ 
++	/*
++	 * Runtime resume can run during probe, before the host role is started
++	 * and xhci-plat has set its drvdata: nothing to update yet.
++	 */
++	if (!cdns->host_dev)
++		return 0;
++
++	hcd = platform_get_drvdata(cdns->host_dev);
++	if (!hcd)
++		return 0;
++
++	priv = hcd_to_xhci_priv(hcd);
+ 	priv->power_lost = power_lost;
+ 
+ 	return 0;
