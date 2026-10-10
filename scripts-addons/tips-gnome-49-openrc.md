@@ -48,3 +48,10 @@ Symptôme : un framebuffer existe mais OpenRC n'affiche rien, ou VT1 reste noir.
 Cause : `/dev/console` est le dernier `console=` de la cmdline (ici `ttyAMA2`), et `fbcon=map:01111111` liait VT1 à `fb0` (efifb, non affiché).
 Correctif : `fbcon=map:1` et `console=ttyAMA2,115200 console=tty0`.
 Contrôle : `cat /proc/consoles` doit finir par `tty0`.
+
+## Fix 6 : dossiers XDG absents (Documents, Téléchargements...)
+
+Symptôme : un nouvel utilisateur n'a ni `~/Documents` ni `~/.config/user-dirs.dirs`, et Nautilus n'affiche rien.
+Cause : `xdg-user-dirs-update` est normalement lancé par l'autostart de gnome-session via systemd. Sous OpenRC, personne ne l'exécute.
+Correctif : service utilisateur `bookworm-user-dirs` (gnome-session), qui charge la locale système (`/etc/profile.env`, `/etc/locale.conf`) avant d'appeler `xdg-user-dirs-update`. Il est idempotent et n'écrase rien.
+Installation : `sudo ./fix-gnome49-openrc.sh --all-users --skel`.

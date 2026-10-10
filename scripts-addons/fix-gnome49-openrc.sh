@@ -13,7 +13,7 @@
 set -euo pipefail
 
 INITD=/etc/user/init.d
-SERVICES=(pipewire wireplumber pipewire-pulse bookworm-activation-env)
+SERVICES=(pipewire wireplumber pipewire-pulse bookworm-activation-env bookworm-user-dirs)
 CHECK=0; SKEL=0; ALL=0; GREETER=0; USERS=()
 
 ok()   { echo " [ok]   $*"; }
@@ -104,11 +104,35 @@ EOF_SVC
   ok "service installé : $f"
 }
 
+install_user_dirs() {
+  local f=$INITD/bookworm-user-dirs tmp
+  tmp=$(mktemp)
+  cat > "$tmp" <<'EOF_SVC2'
+#!/sbin/openrc-run
+description="bookworm: cree les dossiers XDG (Documents, Telechargements...) au demarrage de session"
+
+start() {
+	(
+		[ -r /etc/profile.env ] && . /etc/profile.env
+		[ -r /etc/locale.conf ] && . /etc/locale.conf
+		export LANG LC_ALL
+		xdg-user-dirs-update
+	) >/dev/null 2>&1
+	return 0
+}
+EOF_SVC2
+  if cmp -s "$tmp" "$f" 2>/dev/null; then ok "service déjà à jour : $f"; rm -f "$tmp"; return 0; fi
+  if [[ $CHECK -eq 1 ]]; then warn "à créer/mettre à jour : $f"; rm -f "$tmp"; return 0; fi
+  install -m 755 "$tmp" "$f"; rm -f "$tmp"
+  ok "service installé : $f"
+}
+
 if [[ $ALL -eq 1 ]]; then
   mapfile -t USERS < <(getent passwd | awk -F: '$3>=1000 && $3<60000 && $7 !~ /nologin|false/ {print $1}')
 fi
 
 install_activation_env
+install_user_dirs
 patch_shell
 for u in "${USERS[@]}"; do
   home=$(getent passwd "$u" | cut -d: -f6)
