@@ -55,3 +55,5 @@ Symptôme : un nouvel utilisateur n'a ni `~/Documents` ni `~/.config/user-dirs.d
 Cause : `xdg-user-dirs-update` est normalement lancé par l'autostart de gnome-session via systemd. Sous OpenRC, personne ne l'exécute.
 Correctif : service utilisateur `bookworm-user-dirs` (gnome-session), qui charge la locale système (`/etc/profile.env`, `/etc/locale.conf`) avant d'appeler `xdg-user-dirs-update`. Il est idempotent et n'écrase rien.
 Installation : `sudo ./fix-gnome49-openrc.sh --all-users --skel`.
+
+Note Flatpak (Firefox, etc.) : le sandbox voit `~/Téléchargements` seulement si le dossier existe au premier lancement. Avec `bookworm-user-dirs` c'est le cas pour tout nouvel utilisateur. Pour un utilisateur ancien dont les dossiers ont été créés après coup : `flatpak kill <app>` puis relancer l'application. Si besoin, `flatpak override --user --filesystem=xdg-download <app>`.
