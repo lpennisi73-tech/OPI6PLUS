@@ -37,6 +37,7 @@ patch_shell() {
   local f real; local -A seen=()
   for f in "$INITD"/gnome-shell-wayland*; do
     [[ -e $f ]] || continue
+    case $f in *.orig|*.tmp|*.bak*) continue;; esac
     [[ $GREETER -eq 0 && $f != "$INITD/gnome-shell-wayland" ]] && continue
     real=$(readlink -f "$f")
     [[ -n ${seen[$real]:-} ]] && continue; seen[$real]=1
@@ -46,15 +47,18 @@ patch_shell() {
       warn "motif start_pre introuvable dans $real (paquet modifié ? peut-être corrigé en amont) : rien changé"; continue
     fi
     if [[ $CHECK -eq 1 ]]; then warn "à corriger : $real"; continue; fi
-    [[ -e $real.bookworm.orig ]] || cp -a "$real" "$real.bookworm.orig"
+    local bkdir=/root/bookworm-backups bk
+    mkdir -p "$bkdir"
+    bk="$bkdir/$(basename "$real").$(date +%Y%m%d-%H%M%S).orig"
+    cp -a "$real" "$bk"
     awk '{print}
       /done < \/proc\/.*_gsl_file.*\/environ/ && !d {
         print ""
         print "\t# bookworm: forcer le bus OpenRC (le leader gdm-wayland-session expose un bus prive /tmp)"
         print "\texport DBUS_SESSION_BUS_ADDRESS=\"unix:path=${XDG_RUNTIME_DIR}/bus\""
-        d=1 }' "$real.bookworm.orig" > "$real.tmp"
+        d=1 }' "$real" > "$real.tmp"
     cat "$real.tmp" > "$real"; rm -f "$real.tmp"
-    ok "corrigé : $real (sauvegarde : $real.bookworm.orig)"
+    ok "corrigé : $real (sauvegarde : $bk)"
   done
 }
 
