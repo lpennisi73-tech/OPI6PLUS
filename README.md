@@ -123,11 +123,12 @@ stable. Absent sur 6.18.14 et 6.19. Cause non analysée (probablement l'API des 
 La sortie HDMI de la carte passe par un convertisseur DP→HDMI Parade PS185HDM, branché sur le contrôleur `dp4`/`dpu4`. Le DP natif reste sur `dp3`/`dpu3`.
 
 - **Image** : le noyau 6.18 ne reconnaît pas `parade,ps185hdm` dans `simple-bridge`. Patch local `9006-simple-bridge-ps185hdm` (pistes `6.18-lts` et `6.18.14-lts`) ; `6.19` et `7.0` ont déjà ce support en amont. `dts-disable-unused-dpu.py` garde dpu3/dp3 et dpu4/dp4 actifs, désactive dp0/1/2 et les liens audio `dptx0_audio`/`dptx1_audio` (sinon la carte son reste en attente de ses composants).
+- **Réveil après veille** : un écran ou un convertisseur qui refait Unplugged/Plugged au réveil laissait un écran noir (lien coupé, mais CRTC resté actif côté DRM). Patch local `9007-trilin-dp-recover-stale-crtc` (toutes les pistes) : à la reconnexion HPD, on force un modeset du CRTC actif. Validé sur 6.18.14-lts ; à retester sur 6.19 et 7.0.
 - **Son** : carte ALSA `cix_sky1` (périphérique 0 = DisplayPort, 1 = HDMI). Le profil PipeWire par défaut n'expose que le périphérique 0 ; `install.sh` (étape 5b) installe deux règles WirePlumber (`config/wireplumber/`) : profil **Pro Audio** par défaut, et quantum 4096 sur les deux sinks (à 1024, le son est haché). Les sinks apparaissent sous les noms « DisplayPort » et « HDMI ».
 - Détails de mise au point et pièges de test : `scripts-addons/tips-gnome-49-openrc.md`, section 7.
 
 Limites connues :
-- après un écran noir (veille), le DP natif ne se réactive pas ; le HDMI et la combinaison DP + HDMI simultanés n'ont pas encore été testés à fond
+- la combinaison DP + HDMI simultanés n'a pas encore été testée à fond ; le réveil du DP natif après veille n'a pas été vérifié avec un écran DP (le HDMI se réveille correctement)
 - les utilisateurs qui ont déjà un profil audio mémorisé par WirePlumber (`~/.local/state/wireplumber/`) le conservent : la règle ne s'applique qu'aux autres
 - le bouton « Tester » de GNOME ne fonctionne pas avec le profil Pro Audio (pas de disposition de haut-parleurs)
 - `6.19-latest` et `7.0-next` n'ont pas encore été retestés pour le HDMI

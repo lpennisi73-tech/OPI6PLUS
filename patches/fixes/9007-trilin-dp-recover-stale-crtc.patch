@@ -1,0 +1,50 @@
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -2682,6 +2682,37 @@
+ #define DP_HPD_MAX_TRIES 100
+ 
+ /*hdp event handle plug in and out*/
++/*
++ * After an HPD bounce (sink drops HPD then raises it again within a few
++ * seconds, e.g. a monitor or DP->HDMI converter waking up),
++ * trilin_dp_handle_disconnect() has already powered the PHY down and cleared
++ * active_stream_cnt, but userspace never saw a "disconnected" state and does
++ * not re-commit: the CRTC stays active on a dead link (black screen).
++ * Force a modeset on the active CRTC so that disable/enable re-trains the link.
++ */
++static void trilin_dp_recover_stale_crtc(struct trilin_dp *dp)
++{
++	struct drm_device *drm = dp->drm[0];
++	struct drm_modeset_acquire_ctx ctx;
++	struct drm_crtc *crtc;
++	int ret;
++
++	if (!drm || !dp->plugin || (dp->state & DP_STATE_SUSPENDED))
++		return;
++
++	DRM_MODESET_LOCK_ALL_BEGIN(drm, ctx, 0, ret);
++
++	crtc = dp->connector.base.state ? dp->connector.base.state->crtc : NULL;
++	if (crtc && crtc->state && crtc->state->active && !dp->active_stream_cnt) {
++		DP_INFO("HPD bounce: CRTC active but link torn down, forcing modeset\n");
++		ret = drm_atomic_helper_reset_crtc(crtc, &ctx);
++		if (ret && ret != -EDEADLK)
++			DP_ERR("forced modeset failed: %d\n", ret);
++	}
++
++	DRM_MODESET_LOCK_ALL_END(drm, ctx, ret);
++}
++
+ static void trilin_dp_hpd_event_work_func(struct work_struct *work)
+ {
+ 	struct trilin_dp *dp;
+@@ -2753,6 +2784,9 @@
+ 		dptx_audio_handle_plugged_change(dp_audio, false);
+ 
+ 	cix_hdcp_hpd_event_process(&dp->hdcp, dp->plugin);
++
++	if (dp->plugin)
++		trilin_dp_recover_stale_crtc(dp);
+ }
+ 
+ /* hdp irq handle other event */
