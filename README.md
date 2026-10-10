@@ -130,7 +130,7 @@ stable. Absent sur 6.18.14 et 6.19. Cause non analysée (probablement l'API des 
 
 ### GNOME 49 / OpenRC
 - Voir `scripts-addons/tips-gnome-49-openrc.md` et `scripts-addons/fix-gnome49-openrc.sh`.
-
+- **Dossiers XDG** : sous OpenRC, `xdg-user-dirs-update` n'est pas lancé par gnome-session. Le service `bookworm-user-dirs` (installé par `fix-gnome49-openrc.sh`) crée `Documents`, `Téléchargements`, etc. à la première session.
 
 
 ---
