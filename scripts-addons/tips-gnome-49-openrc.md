@@ -52,7 +52,7 @@ Pièges de test :
 - `pw-play --target` attend le NOM du nœud (alsa_output.platform-sound.pro-output-1), pas l'ID de `wpctl status` ; un ID inconnu retombe sur le sink par défaut (faux « pas de son », faux « marche une seule fois »).
 - Le bouton « Tester » de GNOME ne marche pas avec Pro Audio (pas de disposition de haut-parleurs) : tester avec pw-play ou une vidéo.
 - `speaker-test -D pipewire` échoue sans le plugin ALSA pipewire ; inutile pour GNOME/Firefox.
-- Le pilote DP audio est sain : en direct sur hw:1,1 (S16 ou S32) tout fonctionne ; le défaut venait de PipeWire (cible et quantum).
+- Le pilote DP audio est sain : en direct sur hw:<carte cix_sky1>,1 (S16 ou S32) tout fonctionne ; le défaut venait de PipeWire (cible et quantum).
 - build-pipeline : PATCHES_EXTRA est réappliqué à chaque lancement avec `patch -p1` sans -N ; repartir d'un arbre kernel neuf (mv linux-X linux-X.old) pour un build propre.
 Contrôle : `wpctl status` doit lister les sinks « DisplayPort » et « HDMI » sans réglage manuel pour un nouvel utilisateur (validé avec un utilisateur de test).
 
@@ -78,7 +78,7 @@ Pièges de diagnostic :
 - `/tmp` est vidé au reboot (recréer `tone.wav`) ; `> /root/x` échoue sans root, utiliser `| sudo tee`.
 - Le bloc audio du contrôleur (registres `0x908`–`0x95c`, canaux `0x954 = 0x87654321`, compteur de paquets `0x95c`) est programmé quand le son marche ; tout à 0 = rien n'est émis. `0x868`/`0xa68` passent à 0x8 à chaque lecture de `register_info` (artefact).
 - Sur 7.0 l'ELD (`amixer -c 0 contents`) était nul pendant le boot silencieux ; non établi comme cause (le chemin `drm_get_edid` + `drm_add_edid_modes` ne le construit peut-être dans aucun noyau).
-- Numéro de carte : `cix_sky1` est la carte 0 en 7.0 (carte 1 en 6.18.14).
+- Numéro de carte : il dépend de l'ordre de chargement (`cix_sky1` était la carte 1 sur un ancien boot 6.18.14, la carte 0 sur 7.0 et sur 6.18.14 avec 9009). Ne jamais le coder en dur : `grep cix_sky1 /proc/asound/cards`.
 
 ## Bruit sans conséquence
 - RealtimeKit1 absent (rtkit non installé), bolt.enroll non enregistré (bolt non installé), geolocation portal NotFound.
