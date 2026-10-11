@@ -210,6 +210,28 @@ if [[ -d "$PROJECT_DIR/config/wireplumber" ]]; then
 fi
 
 # =============================================================================
+# ETAPE 5c — ALSA -> PipeWire (les applications ALSA/GStreamer passent par PipeWire)
+# Sans ces liens, le peripherique "default" ouvre directement cix_sky1 (DisplayPort),
+# deja tenu par PipeWire en profil Pro Audio : pas de son dans Totem et les apps ALSA.
+# =============================================================================
+ALSA_SRC=/usr/share/alsa/alsa.conf.d
+if [[ -d "$ALSA_SRC" ]]; then
+    echo ""
+    echo -e "${YELLOW}--- Etape 5c: ALSA -> PipeWire ---${NC}"
+    mkdir -p /etc/alsa/conf.d
+    for f in 50-pipewire.conf 99-pipewire-default.conf; do
+        if [[ ! -e "$ALSA_SRC/$f" ]]; then
+            echo -e "${YELLOW}ATTENTION${NC} $ALSA_SRC/$f absent (media-video/pipewire sans USE pipewire-alsa ?)"
+        elif [[ -e "/etc/alsa/conf.d/$f" && ! -L "/etc/alsa/conf.d/$f" ]]; then
+            echo -e "${YELLOW}SKIP${NC} /etc/alsa/conf.d/$f existe deja (fichier utilisateur conserve)"
+        else
+            ln -sf "$ALSA_SRC/$f" "/etc/alsa/conf.d/$f"
+            echo -e "${GREEN}OK${NC} alsa: $f"
+        fi
+    done
+fi
+
+# =============================================================================
 # ETAPE 6 — Dracut config + Initramfs
 # =============================================================================
 if $DO_INITRAMFS; then

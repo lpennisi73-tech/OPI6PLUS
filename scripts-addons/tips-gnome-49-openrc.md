@@ -44,7 +44,7 @@ Fix : service utilisateur /etc/user/init.d/bookworm-user-dirs (charge /etc/profi
 Installation : `sudo ./fix-gnome49-openrc.sh --all-users --skel` (scripts-addons). Validé avec un nouvel utilisateur.
 
 ## 7. HDMI et audio DP/HDMI (OrangePi 6 Plus, validé le 2026-10-10 sur 6.18.14-lts)
-Image : la sortie HDMI passe par le convertisseur DP→HDMI Parade PS185HDM (dp4/dpu4). Le noyau 6.18 ne connaît pas `parade,ps185hdm` dans simple-bridge : patch local 9006 (6.18.14-lts uniquement ; 6.19 et 7.0 l'ont déjà en amont). `dts-disable-unused-dpu.py` garde dpu3/dp3 (DP natif) et dpu4/dp4 (HDMI), désactive dp0/1/2 et les liens audio dptx0/1_audio (sinon la carte son reste en EPROBE_DEFER).
+Image : la sortie HDMI passe par le convertisseur DP→HDMI Parade PS185HDM (dp4/dpu4). Le noyau 6.18 ne connaît pas `parade,ps185hdm` dans simple-bridge : patch local 9006 (6.18-lts et 6.18.14-lts uniquement ; 6.19 et 7.0 l'ont déjà en amont). `dts-disable-unused-dpu.py` garde dpu3/dp3 (DP natif) et dpu4/dp4 (HDMI), désactive dp0/1/2 et les liens audio dptx0/1_audio (sinon la carte son reste en EPROBE_DEFER).
 Son : carte ALSA `cix_sky1`, périphérique 0 = DP natif, 1 = HDMI. Le profil par défaut (`output:stereo-fallback`) n'expose que le périphérique 0 ; il faut le profil `pro-audio` pour avoir le HDMI. Règles WirePlumber (config/wireplumber/, installées par install.sh, étape 5b) :
 - 51-sky1-hdmi-profile.conf : profil pro-audio par défaut (device.profile.priority.rules). Un profil déjà mémorisé dans ~/.local/state/wireplumber/ passe avant la règle.
 - 52-sky1-hdmi-buffer.conf : node.force-quantum = 4096 sur les deux sinks (à 1024 : des milliers de xruns, son haché ; api.alsa.period-size seul aggrave le problème) et noms « DisplayPort » / « HDMI ».
@@ -59,26 +59,40 @@ Contrôle : `wpctl status` doit lister les sinks « DisplayPort » et « HDMI »
 ### 7b. Écran noir au réveil (HDMI, et probablement DP) : patch 9007
 Symptôme : après l'extinction de l'écran par GNOME, souris et clavier ne rallument rien ; `Ctrl+Alt+F2` non plus. Pourtant `status=connected`, `enabled`, `dpms On`, et l'état atomique donne crtc `active=1`.
 Cause : au réveil, le moniteur/convertisseur fait Unplugged puis Plugged en ~2,5 s, environ 2 s après le link training. `trilin_dp_handle_disconnect()` éteint le PHY et met `active_stream_cnt = 0`, mais mutter ne voit jamais l'état « déconnecté » (le connecteur est de nouveau connecté quand il relit) et ne refait pas de modeset : le CRTC reste actif sur un lien mort.
-Correctif : `9007-trilin-dp-recover-stale-crtc` — à la fin du travail HPD, si le connecteur a un CRTC actif et `active_stream_cnt == 0`, on appelle `drm_atomic_helper_reset_crtc()` (log : « HPD bounce: CRTC active but link torn down, forcing modeset »). Validé sur 6.18.14-lts, 6.19-latest et 7.0-next (HDMI), y compris sur arbre propre (2 déclenchements du log en ~580 s d'idle, image revenue) ; déclaré dans les 4 pistes.
+Correctif : `9007-trilin-dp-recover-stale-crtc` — à la fin du travail HPD, si le connecteur a un CRTC actif et `active_stream_cnt == 0`, on appelle `drm_atomic_helper_reset_crtc()` (log : « HPD bounce: CRTC active but link torn down, forcing modeset »). Validé sur 6.18.14-lts, 6.19-latest et 7.0-next (HDMI), y compris sur arbre propre (2 déclenchements du log en ~580 s d'idle, image revenue) ; déclaré dans les 4 pistes (dry-run OK sur 6.19 et 7.0, test réel à faire).
 Contournement sans patch : `echo off | sudo tee /sys/class/drm/card2-HDMI-A-1/status; sleep 3; echo detect | sudo tee /sys/class/drm/card2-HDMI-A-1/status`.
 Diagnostic utile : `sudo dmesg | grep -a -E 'hpd event|encoder_(enable|disable)'` ; un Unplugged/Plugged sans encoder_disable/enable entre les deux est le signe du bug.
 
 ### 7c. Oops USB cdns3 au chargement des modules : patch 9008
 Symptôme : Oops au boot (NULL deref dans `usb_hcd_is_primary_hcd`, appelé depuis `cdns_host_resume`) pendant le probe de `xhci_plat`.
 Cause : le PM runtime resume appelle `cdns_host_resume()` avant que `host_dev` / le drvdata du hcd existent (course au chargement des modules).
-Correctif : `9008-usb-cdns3-guard-null-hcd-in-cdns_host_resume` — retour anticipé si `cdns->host_dev` ou le hcd est NULL. Dans les 4 pistes (PATCHES_EXTRA, après 9007). Validé sur 6.18.14-lts arbre propre : 0 Oops sur les boots testés (une course : confirmer sur plusieurs boots) ; dry-run OK sur 6.19 et 7.0.
+Correctif : `9008-usb-cdns3-guard-null-hcd-in-cdns_host_resume` — retour anticipé si `cdns->host_dev` ou le hcd est NULL. Dans les 4 pistes (PATCHES_EXTRA, après 9007) ; 9005 ajouté aussi à `6.18-lts` (oubli). Validé sur 6.18.14-lts arbre propre : 0 Oops sur les boots testés (une course : confirmer sur plusieurs boots) ; dry-run OK sur 6.19 et 7.0.
 Autre Oops encore non identifié : corruption de liste (hlist) dans finit_module/idempotent_init_module, `Code: b4000140 f9400be1 f9000001 b4000041 (f9000420)` ; il faut le bloc complet (pc, lr, Call trace, /var/log/messages).
 
 ### 7d. Pas de carte son DP/HDMI sur 7.0-next : patch 9009
 Symptôme : seule la carte HDA (ALC269) existe, sinks « DisplayPort » / « HDMI » absents, `dmesg` : `platform sound: deferred probe pending: (reason unknown)` et `sky1-asoc-card sound: dai-link name:dptx3_audio` en boucle ; `/sys/kernel/debug/asoc/components` sans `hdmi-audio-codec`.
 Cause : 9001 copie l'`of_node` du DP sur le pdev `hdmi-audio-codec.N.auto`. Ce nœud porte la compatible `cix,sky1-dptx`, donc si `snd-soc-hdmi-codec` n'est pas encore chargé à la création du pdev, `trilin-dptx-cix` réclame ce pdev (uevent : `DRIVER=trilin-dptx-cix`, `bind` du vrai pilote : EBUSY). Course au chargement des modules.
-Correctif : `9009-trilin-dp-softdep-hdmi-codec` — `MODULE_SOFTDEP("pre: snd-soc-hdmi-codec");` dans `trilin_dptx_cix.c`, hors du `#if IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)` (option désactivée : le `softdep` existant `pre: linlon_dp` n'est pas compilé). Contrôle : `modinfo trilin_dpsub | grep softdep`. Déclaré dans les 4 pistes ; validé sur 7.0 (carte `cix_sky1` liée, sinks, son OK sur 5 boots de suite). Un boot silencieux inexpliqué juste après l'installation, non reproduit.
+Correctif : `9009-trilin-dp-softdep-hdmi-codec` — `MODULE_SOFTDEP("pre: snd-soc-hdmi-codec");` dans `trilin_dptx_cix.c`, hors du `#if IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)` (option désactivée : le `softdep` existant `pre: linlon_dp` n'est pas compilé). Contrôle : `modinfo trilin_dpsub | grep softdep`. Déclaré dans les 4 pistes ; validé sur 7.0 (carte `cix_sky1` liée, sinks, son OK sur 5 boots de suite) et sur 6.18.14 arbre propre. Un boot silencieux inexpliqué juste après l'installation, non reproduit.
 Contournement sans patch : `echo 'softdep trilin_dpsub pre: snd-soc-hdmi-codec' > /etc/modprobe.d/sky1-hdmi-codec.conf` puis `depmod -a`.
 Pièges de diagnostic :
 - `/tmp` est vidé au reboot (recréer `tone.wav`) ; `> /root/x` échoue sans root, utiliser `| sudo tee`.
 - Le bloc audio du contrôleur (registres `0x908`–`0x95c`, canaux `0x954 = 0x87654321`, compteur de paquets `0x95c`) est programmé quand le son marche ; tout à 0 = rien n'est émis. `0x868`/`0xa68` passent à 0x8 à chaque lecture de `register_info` (artefact).
 - Sur 7.0 l'ELD (`amixer -c 0 contents`) était nul pendant le boot silencieux ; non établi comme cause (le chemin `drm_get_edid` + `drm_add_edid_modes` ne le construit peut-être dans aucun noyau).
 - Numéro de carte : il dépend de l'ordre de chargement (`cix_sky1` était la carte 1 sur un ancien boot 6.18.14, la carte 0 sur 7.0 et sur 6.18.14 avec 9009). Ne jamais le coder en dur : `grep cix_sky1 /proc/asound/cards`.
+
+## 8. Une application n'a pas de son (Totem, apps ALSA) alors que GNOME joue
+Symptôme : le son marche dans le navigateur ou avec `pw-play`, mais pas dans Totem. `GST_DEBUG=2 totem fichier` montre `alsalib error: Unknown PCM default:{AES0 ...}` ; `wpctl status` ne montre aucun flux de l'application ; `aplay -L` ne liste que `null` et `default:CARD=cixsky1` / `sysdefault:CARD=cixsky1`.
+Cause : les liens ALSA→PipeWire sont absents de `/etc/alsa/conf.d/`. Toute application qui passe par ALSA ouvre alors directement `cix_sky1` périphérique 0 (le DisplayPort), que PipeWire tient déjà en profil Pro Audio : périphérique occupé, pas de son. Le USE `pipewire-alsa` installe les fichiers mais ne les active pas.
+Correctif :
+```
+sudo mkdir -p /etc/alsa/conf.d
+sudo ln -sf /usr/share/alsa/alsa.conf.d/50-pipewire.conf /etc/alsa/conf.d/50-pipewire.conf
+sudo ln -sf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/99-pipewire-default.conf
+aplay -L | grep -E '^(pipewire|default)$'
+speaker-test -D pipewire -c 2 -t sine -l 1
+```
+Validé le 2026-10-11 (Totem rejoue le son après correction). Les liens avaient disparu, probablement lors d'un nettoyage ; à intégrer à `install.sh` (étape 5b) pour les nouveaux utilisateurs.
+Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink audio-sink=pipewiresink` (puis `pulsesink`, `alsasink`) pour isoler le sink fautif.
 
 ## Bruit sans conséquence
 - RealtimeKit1 absent (rtkit non installé), bolt.enroll non enregistré (bolt non installé), geolocation portal NotFound.
@@ -87,14 +101,17 @@ Pièges de diagnostic :
 - 7.0-next : ~389 warnings dtc « CIX_PAD_GPIOxxx redéfini » (sky1-pinfunc.h vs dt-bindings/pinctrl/pads-sky1.h), build non bloquée.
 
 ## À faire
-- HDMI/DP : réveil du DP natif après écran noir avec un écran DP (patch 9007 validé en HDMI seulement), test DP + HDMI simultanés, tests HDMI + 9007 sur 6.19 et 7.0 (support HDMI amont, sans patch 9006).
-- Appel optionnel du script depuis install.sh (--all-users --skel).
+- HDMI/DP : réveil du DP natif avec un écran DP, tests DP + HDMI simultanés.
+- Boot silencieux inexpliqué sur 7.0 juste après l'installation (non reproduit sur 5 boots) : si ça revient, garder `~/audio-check.log` et ne rien toucher.
+- Oops hlist (finit_module/idempotent_init_module), `Code: b4000140 f9400be1 f9000001 b4000041 (f9000420)` : non identifié, il faut le bloc complet (pc, lr, Call trace).
+- Avant le tag v1.9 : ménage (utilisateurs de test, `/boot/dtb/*hdmitest*`, arbres `.old`, fichiers `/root`), README « Limites connues ».
+- Intégrer les liens ALSA→PipeWire (section 8) à install.sh, étape 5b.
 - Signaler le défaut à Gentoo (gnome-base/gnome-session-openrc).
-- Module-load race (idempotent_init_module), Oops hlist non identifié : surveiller `dmesg | grep -a -c -E 'Oops|soft lockup'` à chaque boot.
+- Appel optionnel du script depuis install.sh (--all-users --skel).
 - USB-C 10 Gbps (retourner le connecteur, autre port), KVM (rebind via usb-rebind-bus10).
 
-### 7d. Pas de carte son DP/HDMI sur 7.0-next : patch 9009
-Symptôme : seule la carte HDA existe, sinks « DisplayPort » / « HDMI » absents, `dmesg` : `platform sound: deferred probe pending: (reason unknown)` ; `/sys/kernel/debug/asoc/components` sans `hdmi-audio-codec`.
-Cause : 9001 copie l'`of_node` du DP sur le pdev `hdmi-audio-codec.N.auto`. Ce nœud porte la compatible `cix,sky1-dptx` ; si `snd-soc-hdmi-codec` n'est pas chargé à la création du pdev, `trilin-dptx-cix` réclame ce pdev (uevent : `DRIVER=trilin-dptx-cix`, `bind` : EBUSY).
-Correctif : `9009-trilin-dp-softdep-hdmi-codec` — `MODULE_SOFTDEP("pre: snd-soc-hdmi-codec");` dans `trilin_dptx_cix.c`, hors du `#if CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED` (désactivé). Contrôle : `modinfo trilin_dpsub | grep softdep`. Validé sur 7.0 (5 boots, son OK ; un boot silencieux inexpliqué juste après l'installation, non reproduit).
-Contournement sans patch : `echo 'softdep trilin_dpsub pre: snd-soc-hdmi-codec' | sudo tee /etc/modprobe.d/sky1-hdmi-codec.conf && sudo depmod -a`.
+## État des pistes (2026-10-11)
+- 6.18.14-lts (défaut du script, stable) : HDMI + son + réveil + 0 Oops, validé avec 9004–9009 sur arbre propre.
+- 6.19-latest : build, HDMI (sans 9006, amont), son, réveil, 0 Oops validés.
+- 7.0-next : build, HDMI, son (9009), réveil (9007), 0 Oops validés (1 boot silencieux inexpliqué juste après l'installation, non reproduit).
+- 6.18-lts (6.18.9) : supprimée, doublon périmé.
