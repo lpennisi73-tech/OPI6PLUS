@@ -119,6 +119,29 @@ Au chargement du module `armchina_npu` sur 7.0-next, un avertissement noyau appa
 pendant le `probe` (IRQ 109). Le NPU se déclare quand même (`/dev/aipu`, 3 cœurs) et le système reste
 stable. Absent sur 6.18.14 et 6.19. Cause non analysée (probablement l'API des IRQ du noyau 7.0).
 
+### Langue et clavier (optionnel)
+
+`scripts-addons/set-locale.sh` configure la langue, le clavier (console, GNOME et écran de connexion GDM) et le fuseau horaire en une commande. Il est facultatif et n'est pas appelé par `install.sh`. Chaque fichier modifié est sauvegardé dans `/root/set-locale-bak/<date>/`.
+
+```bash
+# Simulation (ne modifie rien)
+sudo ./scripts-addons/set-locale.sh --lang fr_CH --tz Europe/Zurich --dry-run
+
+# Français (Suisse) : langue, clavier ch/fr, fuseau
+sudo ./scripts-addons/set-locale.sh --lang fr_CH --tz Europe/Zurich
+
+# Anglais (US) : langue et clavier us
+sudo ./scripts-addons/set-locale.sh --lang en_US --tz America/New_York
+
+# Interface en anglais, clavier suisse conservé
+sudo ./scripts-addons/set-locale.sh --lang en_US --kbd ch:fr --console fr_CH
+```
+
+Ensuite, **redémarrer la machine** (`sudo reboot`). Un simple redémarrage de GDM ne relit pas la locale de façon fiable et a figé l'affichage lors de nos tests.
+
+- Sous OpenRC, le clavier de GDM vient du service `org.freedesktop.locale1` fourni par `openrc-settingsd` (fichier `/etc/X11/xorg.conf.d/30-keyboard.conf`). Le script crée ce fichier, que le service ne crée pas lui-même.
+- Le script règle le système et l'écran de connexion. La langue d'un compte déjà utilisé reste celle choisie dans GNOME (Paramètres > Région et langue), et les formats (`LC_*`) suivent aussi ce réglage.
+
 ### HDMI et audio DP/HDMI (validé sur 6.18.14-lts, 6.19-latest et 7.0-next)
 La sortie HDMI de la carte passe par un convertisseur DP→HDMI Parade PS185HDM, branché sur le contrôleur `dp4`/`dpu4`. Le DP natif reste sur `dp3`/`dpu3`.
 

@@ -115,3 +115,11 @@ Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink a
 - 6.19-latest : build, HDMI (sans 9006, amont), son, réveil, 0 Oops validés.
 - 7.0-next : build, HDMI, son (9009), réveil (9007), 0 Oops validés (1 boot silencieux inexpliqué juste après l'installation, non reproduit).
 - 6.18-lts (6.18.9) : supprimée, doublon périmé.
+
+## 9. Langue et clavier : GDM en en_US malgré fr_CH (OpenRC)
+- Le greeter lit la disposition via `org.freedesktop.locale1`, fourni sous OpenRC par `openrc-settingsd`, qui lit `/etc/X11/xorg.conf.d/30-keyboard.conf`. Fichier absent : `X11Layout` vide, repli sur `us` (un dconf `gdm.d` n'a aucun effet). `SetX11Keyboard` échoue tant que ce fichier n'existe pas : le créer (`XkbLayout`/`XkbVariant`), puis `pkill -f openrc-settingsd` (cache).
+- Contrôle : `gdbus call --system --dest org.freedesktop.locale1 --object-path /org/freedesktop/locale1 --method org.freedesktop.DBus.Properties.Get org.freedesktop.locale1 X11Layout`
+- Automatisé : `scripts-addons/set-locale.sh --lang fr_CH [--tz Europe/Zurich] [--kbd ch:fr --console fr_CH] [--dry-run]`, puis `sudo reboot`.
+- Piège : `env-update` lit tout fichier de `/etc/env.d/` commençant par deux chiffres, y compris `02locale.bak-<date>` (la dernière sauvegarde écrasait `LANG` dans `/etc/profile.env`). Sauvegardes du script : `/root/set-locale-bak/<date>/`. Contrôle : `grep '^export LANG' /etc/profile.env`.
+- Un `rc-service display-manager restart` après changement de langue a figé l'affichage une fois (6.18.14, SSH vivant, cause non établie, rien dans les logs) : consigne = reboot.
+- `pkill`/`pgrep` sans `-f` ne trouvent pas les noms de plus de 15 caractères ; les `LC_*` suivent le réglage « Formats » de GNOME.
