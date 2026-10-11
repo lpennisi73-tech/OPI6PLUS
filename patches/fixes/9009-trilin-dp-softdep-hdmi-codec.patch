@@ -1,0 +1,10 @@
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -437,4 +437,7 @@
+ #if IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ MODULE_SOFTDEP("pre: linlon_dp");
+ #endif
++/* hdmi-audio-codec doit etre charge avant trilin : sinon, une fois l'of_node du DP
++ * copie sur le pdev audio, trilin-dptx-cix (cix,sky1-dptx) reclame ce pdev. */
++MODULE_SOFTDEP("pre: snd-soc-hdmi-codec");
+ MODULE_ALIAS("platform:trilin-dptx-cix");
