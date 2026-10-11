@@ -119,19 +119,20 @@ Au chargement du module `armchina_npu` sur 7.0-next, un avertissement noyau appa
 pendant le `probe` (IRQ 109). Le NPU se déclare quand même (`/dev/aipu`, 3 cœurs) et le système reste
 stable. Absent sur 6.18.14 et 6.19. Cause non analysée (probablement l'API des IRQ du noyau 7.0).
 
-### HDMI et audio DP/HDMI (validé sur 6.18.14-lts)
+### HDMI et audio DP/HDMI (validé sur 6.18.14-lts, 6.19-latest et 7.0-next)
 La sortie HDMI de la carte passe par un convertisseur DP→HDMI Parade PS185HDM, branché sur le contrôleur `dp4`/`dpu4`. Le DP natif reste sur `dp3`/`dpu3`.
 
 - **Image** : le noyau 6.18 ne reconnaît pas `parade,ps185hdm` dans `simple-bridge`. Patch local `9006-simple-bridge-ps185hdm` (piste `6.18.14-lts`) ; `6.19` et `7.0` ont déjà ce support en amont. `dts-disable-unused-dpu.py` garde dpu3/dp3 et dpu4/dp4 actifs, désactive dp0/1/2 et les liens audio `dptx0_audio`/`dptx1_audio` (sinon la carte son reste en attente de ses composants).
-- **Réveil après veille** : un écran ou un convertisseur qui refait Unplugged/Plugged au réveil laissait un écran noir (lien coupé, mais CRTC resté actif côté DRM). Patch local `9007-trilin-dp-recover-stale-crtc` (toutes les pistes) : à la reconnexion HPD, on force un modeset du CRTC actif. Validé sur 6.18.14-lts ; à retester sur 6.19 et 7.0.
-- **Son** : carte ALSA `cix_sky1` (périphérique 0 = DisplayPort, 1 = HDMI). Le profil PipeWire par défaut n'expose que le périphérique 0 ; `install.sh` (étape 5b) installe deux règles WirePlumber (`config/wireplumber/`) : profil **Pro Audio** par défaut, et quantum 4096 sur les deux sinks (à 1024, le son est haché). Les sinks apparaissent sous les noms « DisplayPort » et « HDMI ».
+- **Réveil après veille** : un écran ou un convertisseur qui refait Unplugged/Plugged au réveil laissait un écran noir (lien coupé, mais CRTC resté actif côté DRM). Patch local `9007-trilin-dp-recover-stale-crtc` (toutes les pistes) : à la reconnexion HPD, on force un modeset du CRTC actif. Validé sur 6.18.14-lts, 6.19-latest et 7.0-next.
+- **Liaison de la carte son** : patch local `9009-trilin-dp-softdep-hdmi-codec` (toutes les pistes). `trilin_dpsub` déclare une dépendance sur `snd-soc-hdmi-codec` ; sans elle, sur 7.0, le pilote DP peut réclamer le périphérique audio avant le codec HDMI et la carte `cix_sky1` ne se lie jamais (« deferred probe pending »). Contrôle : `modinfo trilin_dpsub | grep softdep`.
+- **Son** : carte ALSA `cix_sky1` (périphérique 0 = DisplayPort, 1 = HDMI). Le profil PipeWire par défaut n'expose que le périphérique 0 ; `install.sh` (étape 5b) installe deux règles WirePlumber (`config/wireplumber/`) : profil **Pro Audio** par défaut, et quantum 4096 sur les deux sinks (à 1024, le son est haché). Les sinks apparaissent sous les noms « DisplayPort » et « HDMI ». Le numéro de la carte ALSA dépend de l'ordre de chargement : ne pas le coder en dur (`grep cix_sky1 /proc/asound/cards`).
 - Détails de mise au point et pièges de test : `scripts-addons/tips-gnome-49-openrc.md`, section 7.
 
 Limites connues :
 - la combinaison DP + HDMI simultanés n'a pas encore été testée à fond ; le réveil du DP natif après veille n'a pas été vérifié avec un écran DP (le HDMI se réveille correctement)
 - les utilisateurs qui ont déjà un profil audio mémorisé par WirePlumber (`~/.local/state/wireplumber/`) le conservent : la règle ne s'applique qu'aux autres
 - le bouton « Tester » de GNOME ne fonctionne pas avec le profil Pro Audio (pas de disposition de haut-parleurs)
-- `6.19-latest` et `7.0-next` n'ont pas encore été retestés pour le HDMI
+- sur `7.0-next`, un boot sans son a été observé une fois juste après l'installation du noyau (non reproduit sur 5 boots suivants) ; si cela arrive, relever `dmesg | grep -a -E 'hpd event|HPD bounce'` avant de toucher à quoi que ce soit
 
 ## Console et framebuffer (boot)
 
@@ -298,8 +299,8 @@ Plus besoin de configuration manuelle post-install pour ces modules.
 | Track | Base | Statut | Notes |
 |-------|------|--------|-------|
 | `6.18.14-lts` | Linux 6.18.14 LTS | ✅ **Recommandé — fiable** | Dernière stable de la série LTS 6.18 testée (correctifs de sécurité et de bugs), boot stable |
-| `6.19-latest` | Linux 6.19 | ✅ Testé | Boot confirmé, GPU + boost 2.6GHz opérationnels |
-| `7.0-next` | Linux 7.0 | 🧪 Testé — expérimental | Boot confirmé, Sky1 partiellement upstream |
+| `6.19-latest` | Linux 6.19 | ✅ Testé | Boot confirmé, GPU + boost 2.6GHz opérationnels ; HDMI, son et réveil validés |
+| `7.0-next` | Linux 7.0 | 🧪 Testé — expérimental | Boot confirmé, Sky1 partiellement upstream ; HDMI, son et réveil validés |
 
 👉 Pour un usage stable au quotidien, partez du track `6.18.14-lts` : la série LTS 6.18.x
 reçoit des correctifs de sécurité réguliers, mieux vaut suivre le dernier point release. Les tracks
