@@ -6,7 +6,7 @@
 # Usage: ./bookworm-sky1-build.sh [options]
 #
 # Options:
-#   --kernel <version>    Version kernel à compiler (ex: 6.19-latest)
+#   --kernel <version>    Version kernel à compiler (défaut : 6.18.14-lts ; ex: 6.19-latest)
 #   --base-config <path>  Config kernel de base (défaut: config Gentoo courante)
 #   --build-dir <path>    Répertoire de build (défaut: ~/build/sky1-kernel)
 #   --jobs <n>            Nombre de jobs parallèles (défaut: nproc)
@@ -20,8 +20,8 @@
 #
 # Exemple:
 #   ./bookworm-sky1-build.sh --kernel 6.19-latest
-#   ./bookworm-sky1-build.sh --kernel 7.0-latest --install
-#   ./bookworm-sky1-build.sh --kernel 6.18-lts --skip-download
+#   ./bookworm-sky1-build.sh --kernel 7.0-next --install
+#   ./bookworm-sky1-build.sh --kernel 6.18.14-lts --skip-download
 #
 # BOOKWORM — Kenny — OrangePi 6 Plus Sky1 Gentoo
 # =============================================================================
@@ -48,7 +48,7 @@ die()     { echo -e "${RED}FATAL: $1${NC}" | tee -a "$LOG_FILE"; exit 1; }
 # =============================================================================
 # VALEURS PAR DÉFAUT
 # =============================================================================
-KERNEL_TRACK="6.19-latest"
+KERNEL_TRACK="6.18.14-lts"
 BASE_CONFIG=""
 BUILD_DIR="/usr/src/build/sky1-kernel"
 JOBS=$(nproc)

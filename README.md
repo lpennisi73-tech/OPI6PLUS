@@ -69,7 +69,7 @@ démarrage du driver `scmi-cpufreq` — plus besoin d'attendre un BIOS update CI
 Validé stable sous charge compile complète (12 cores) : 2.6GHz maintenu sans
 throttling jusqu'à ~73°C.
 
-Appliqué sur tous les tracks (`6.18.14-lts`, `6.18-lts`, `6.19-latest`, `7.0-next`) via `PATCHES_EXTRA`.
+Appliqué sur tous les tracks (`6.18.14-lts`, `6.19-latest`, `7.0-next`) via `PATCHES_EXTRA`.
 
 ### cpufreq — chargement et options automatisés
 `scmi-cpufreq` est en `=m`. Le chargement au boot et l'activation du boost
@@ -122,7 +122,7 @@ stable. Absent sur 6.18.14 et 6.19. Cause non analysée (probablement l'API des 
 ### HDMI et audio DP/HDMI (validé sur 6.18.14-lts)
 La sortie HDMI de la carte passe par un convertisseur DP→HDMI Parade PS185HDM, branché sur le contrôleur `dp4`/`dpu4`. Le DP natif reste sur `dp3`/`dpu3`.
 
-- **Image** : le noyau 6.18 ne reconnaît pas `parade,ps185hdm` dans `simple-bridge`. Patch local `9006-simple-bridge-ps185hdm` (pistes `6.18-lts` et `6.18.14-lts`) ; `6.19` et `7.0` ont déjà ce support en amont. `dts-disable-unused-dpu.py` garde dpu3/dp3 et dpu4/dp4 actifs, désactive dp0/1/2 et les liens audio `dptx0_audio`/`dptx1_audio` (sinon la carte son reste en attente de ses composants).
+- **Image** : le noyau 6.18 ne reconnaît pas `parade,ps185hdm` dans `simple-bridge`. Patch local `9006-simple-bridge-ps185hdm` (piste `6.18.14-lts`) ; `6.19` et `7.0` ont déjà ce support en amont. `dts-disable-unused-dpu.py` garde dpu3/dp3 et dpu4/dp4 actifs, désactive dp0/1/2 et les liens audio `dptx0_audio`/`dptx1_audio` (sinon la carte son reste en attente de ses composants).
 - **Réveil après veille** : un écran ou un convertisseur qui refait Unplugged/Plugged au réveil laissait un écran noir (lien coupé, mais CRTC resté actif côté DRM). Patch local `9007-trilin-dp-recover-stale-crtc` (toutes les pistes) : à la reconnexion HPD, on force un modeset du CRTC actif. Validé sur 6.18.14-lts ; à retester sur 6.19 et 7.0.
 - **Son** : carte ALSA `cix_sky1` (périphérique 0 = DisplayPort, 1 = HDMI). Le profil PipeWire par défaut n'expose que le périphérique 0 ; `install.sh` (étape 5b) installe deux règles WirePlumber (`config/wireplumber/`) : profil **Pro Audio** par défaut, et quantum 4096 sur les deux sinks (à 1024, le son est haché). Les sinks apparaissent sous les noms « DisplayPort » et « HDMI ».
 - Détails de mise au point et pièges de test : `scripts-addons/tips-gnome-49-openrc.md`, section 7.
@@ -194,7 +194,6 @@ bookworm-sky1-kernel/
 │   ├── inject-sky1-config.sh     # Injection options Sky1 dans config Gentoo
 │   └── kernels/
 │       ├── 6.18.14-lts.conf      # ✅ Track RECOMMANDÉ — LTS 6.18.14 (correctifs de sécurité)
-│       ├── 6.18-lts.conf         # LTS 6.18.9 (version précédente)
 │       ├── 6.19-latest.conf      # ✅ Testé et fonctionnel
 │       └── 7.0-next.conf         # ✅ Testé — track next, partiellement upstream
 │
@@ -299,7 +298,6 @@ Plus besoin de configuration manuelle post-install pour ces modules.
 | Track | Base | Statut | Notes |
 |-------|------|--------|-------|
 | `6.18.14-lts` | Linux 6.18.14 LTS | ✅ **Recommandé — fiable** | Dernière stable de la série LTS 6.18 testée (correctifs de sécurité et de bugs), boot stable |
-| `6.18-lts` | Linux 6.18.9 LTS | ✅ Testé | Version précédente de la série LTS, conservée pour comparaison |
 | `6.19-latest` | Linux 6.19 | ✅ Testé | Boot confirmé, GPU + boost 2.6GHz opérationnels |
 | `7.0-next` | Linux 7.0 | 🧪 Testé — expérimental | Boot confirmé, Sky1 partiellement upstream |
 
@@ -326,24 +324,24 @@ nano config/kernels/8.0-next.conf
 
 ```bash
 # Builder avec sa propre config kernel de base
-./bookworm-sky1-build.sh --kernel 6.18-lts \
+./bookworm-sky1-build.sh --kernel 6.18.14-lts \
     --base-config /boot/config-$(uname -r)
 
 # Builder sans re-télécharger (sources déjà présentes)
-./bookworm-sky1-build.sh --kernel 6.18-lts --skip-download
+./bookworm-sky1-build.sh --kernel 6.18.14-lts --skip-download
 
 # Re-compiler seulement (patches et config déjà appliqués)
-./bookworm-sky1-build.sh --kernel 6.18-lts \
+./bookworm-sky1-build.sh --kernel 6.18.14-lts \
     --skip-download --skip-patches --skip-config
 
 # Build + installation automatique
-./bookworm-sky1-build.sh --kernel 6.18-lts --install
+./bookworm-sky1-build.sh --kernel 6.18.14-lts --install
 
 # Voir ce qui serait fait sans exécuter
-./bookworm-sky1-build.sh --kernel 6.18-lts --dry-run
+./bookworm-sky1-build.sh --kernel 6.18.14-lts --dry-run
 
 # Utiliser plus de cores
-./bookworm-sky1-build.sh --kernel 6.18-lts --jobs 16
+./bookworm-sky1-build.sh --kernel 6.18.14-lts --jobs 16
 ```
 
 ---
