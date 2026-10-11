@@ -123,3 +123,8 @@ Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink a
 - Piège : `env-update` lit tout fichier de `/etc/env.d/` commençant par deux chiffres, y compris `02locale.bak-<date>` (la dernière sauvegarde écrasait `LANG` dans `/etc/profile.env`). Sauvegardes du script : `/root/set-locale-bak/<date>/`. Contrôle : `grep '^export LANG' /etc/profile.env`.
 - Un `rc-service display-manager restart` après changement de langue a figé l'affichage une fois (6.18.14, SSH vivant, cause non établie, rien dans les logs) : consigne = reboot.
 - `pkill`/`pgrep` sans `-f` ne trouvent pas les noms de plus de 15 caractères ; les `LC_*` suivent le réglage « Formats » de GNOME.
+
+### 7e. Double écran DP natif + HDMI (validé le 2026-10-11 sur 6.18.14-lts)
+- Image sur les deux écrans en même temps (`card0-DP-1` = DP natif, `card2-HDMI-A-1` = HDMI ; la numérotation des cartes DRM peut varier), son sur les deux (`alsa_output.platform-sound.pro-output-0` = DP, `pro-output-1` = HDMI) et réveil des deux écrans OK.
+- Au réveil, seul le HDMI fait un Unplugged/Plugged (rattrapé par 9007 : « HPD bounce ... forcing modeset ») ; le DP natif se réveille sans HPD.
+- À valider sur 6.19-latest et 7.0-next. glmark2 : 3117 (6.18.14-lts, double écran).
