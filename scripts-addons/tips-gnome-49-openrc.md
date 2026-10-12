@@ -128,3 +128,13 @@ Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink a
 - Image sur les deux écrans en même temps (`card0-DP-1` = DP natif, `card2-HDMI-A-1` = HDMI ; la numérotation des cartes DRM peut varier), son sur les deux (`alsa_output.platform-sound.pro-output-0` = DP, `pro-output-1` = HDMI) et réveil des deux écrans OK.
 - Au réveil, seul le HDMI fait un Unplugged/Plugged (rattrapé par 9007 : « HPD bounce ... forcing modeset ») ; le DP natif se réveille sans HPD.
 - À valider sur 6.19-latest et 7.0-next. glmark2 : 3117 (6.18.14-lts, double écran).
+
+## 10. Hang GPU Mali (panthor) sous Firefox : gnome-shell perdu, rendu llvmpipe jusqu'au reboot (2026-10-12, 6.18.14-lts)
+- Symptôme : après ~10 h d'uptime, deux pubs vidéo (Firefox) laguent, puis la session Wayland redémarre ; ensuite rendu logiciel (`glxinfo -B` : llvmpipe, mutter « Not hardware accelerated »).
+- Chronologie : UBSAN amvx (décodeur V4L2) -> `panthor: job timeout pid=<firefox-bin>` (2x) -> `CSG 0..6 update request timedout`, `Failed to stop MCU`, `AS_ACTIVE bit stuck` -> reset GPU échoué -> gnome-shell : `Could not import pending buffer: Out of memory`, mort puis relancé.
+- Les WARNING `panthor_vm_destroy` / `panthor_gpuva_sm_step_unmap` sont collatéraux (unmap en -110 ETIMEDOUT, `AS_ACTIVE` bloqué).
+- Récupération : reboot (renderer Mali-G720 MC10 / Panfrost, Mesa 26.1.8).
+- Firmware vérifié : le GPU (id 0xc870, G720) charge `arm/mali/arch12.8/mali_csffw.bin` (git sha 95a25d71…, CSF v3.13.0), identique à celui du dépôt et à `linux-firmware-20260622` (sha256 718f6224…). Piste firmware écartée.
+- Non reproduit ; cause non établie (WebGL/canvas des pubs, driver panthor 6.18.14, DVFS/SCMI, BIOS 1.4 ?). Contournement : désactiver l'accélération de Firefox, bloquer les pubs. Pistes : 6.19/7.0, fréquence GPU fixe (gouverneur `userspace` + `set_freq` ; `performance` indisponible ; fréquences 72/216/350/600/800/1000 MHz), rapport drm/panthor.
+- Diagnostic : `glxinfo -B | grep renderer` (pas llvmpipe) ; `sudo dmesg | grep -a -E 'panthor|job timeout|AS_ACTIVE'`.
+- Bruit associé : UBSAN `array-index-out-of-bounds` dans `amvx` (`mvx_mmu.c:443` et `:812`), non fatal.
