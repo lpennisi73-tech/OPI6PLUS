@@ -101,6 +101,8 @@ Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink a
 - 7.0-next : ~389 warnings dtc « CIX_PAD_GPIOxxx redéfini » (sky1-pinfunc.h vs dt-bindings/pinctrl/pads-sky1.h), build non bloquée.
 
 ## À faire
+- Hang GPU panthor : 2 occurrences (12 et 14 octobre), non reproduit ; si ça revient, blackbox + dmesg complet ; envisager un rapport à dri-devel avec les deux piles.
+- Envoyer les PR 0152/0153/0154 après réaction sur #43 ; 9006 : crédit Maud Spierings avant tout PR.
 - HDMI/DP : réveil du DP natif avec un écran DP, tests DP + HDMI simultanés.
 - Boot silencieux inexpliqué sur 7.0 juste après l'installation (non reproduit sur 5 boots) : si ça revient, garder `~/audio-check.log` et ne rien toucher.
 - Oops hlist (finit_module/idempotent_init_module), `Code: b4000140 f9400be1 f9000001 b4000041 (f9000420)` : non identifié, il faut le bloc complet (pc, lr, Call trace).
@@ -115,6 +117,7 @@ Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink a
 - 6.19-latest : build, HDMI (sans 9006, amont), son, réveil, 0 Oops validés.
 - 7.0-next : build, HDMI, son (9009), réveil (9007), 0 Oops validés (1 boot silencieux inexpliqué juste après l'installation, non reproduit).
 - 6.18-lts (6.18.9) : supprimée, doublon périmé.
+- 6.18.14-lts (2026-10-14) : conf stable = 9004-9009 + 9002/9003 ; conf de test (6.18.14-lts-hotschmoe) = stable + 9010-9012.
 
 ## 9. Langue et clavier : GDM en en_US malgré fr_CH (OpenRC)
 - Le greeter lit la disposition via `org.freedesktop.locale1`, fourni sous OpenRC par `openrc-settingsd`, qui lit `/etc/X11/xorg.conf.d/30-keyboard.conf`. Fichier absent : `X11Layout` vide, repli sur `us` (un dconf `gdm.d` n'a aucun effet). `SetX11Keyboard` échoue tant que ce fichier n'existe pas : le créer (`XkbLayout`/`XkbVariant`), puis `pkill -f openrc-settingsd` (cache).
@@ -135,6 +138,27 @@ Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink a
 - Les WARNING `panthor_vm_destroy` / `panthor_gpuva_sm_step_unmap` sont collatéraux (unmap en -110 ETIMEDOUT, `AS_ACTIVE` bloqué).
 - Récupération : reboot (renderer Mali-G720 MC10 / Panfrost, Mesa 26.1.8).
 - Firmware vérifié : le GPU (id 0xc870, G720) charge `arm/mali/arch12.8/mali_csffw.bin` (git sha 95a25d71…, CSF v3.13.0), identique à celui du dépôt et à `linux-firmware-20260622` (sha256 718f6224…). Piste firmware écartée.
-- Non reproduit ; cause non établie (WebGL/canvas des pubs, driver panthor 6.18.14, DVFS/SCMI, BIOS 1.4 ?). Contournement : désactiver l'accélération de Firefox, bloquer les pubs. Pistes : 6.19/7.0, fréquence GPU fixe (gouverneur `userspace` + `set_freq` ; `performance` indisponible ; fréquences 72/216/350/600/800/1000 MHz), rapport drm/panthor.
+- Non reproduit ; cause non établie (WebGL/canvas des pubs, driver panthor 6.18.14, DVFS/SCMI, BIOS 1.4 ?). Contournement : désactiver l'accélération de Firefox, bloquer les pubs. Pistes : 6.19/7.0, fréquence GPU fixe (gouverneur `userspace` + `set_freq` ; `performance` disponible avec le noyau de test (9012, testé le 2026-10-14, voir la mise à jour ci-dessous) ; fréquences 72/216/350/600/800/1000 MHz), rapport drm/panthor.
 - Diagnostic : `glxinfo -B | grep renderer` (pas llvmpipe) ; `sudo dmesg | grep -a -E 'panthor|job timeout|AS_ACTIVE'`.
 - Bruit associé : UBSAN `array-index-out-of-bounds` dans `amvx` (`mvx_mmu.c:443` et `:812`), non fatal.
+
+### Mise à jour 2026-10-14 : deuxième occurrence, noyau de test 6.18.14 + #37/#40/#41
+Deuxième blocage MCU panthor, cette fois sans Firefox : ~8 min après le boot, pendant une compilation distcc -j20 (noyau 6.18.14-lts-hotschmoe : stable + 9002/9003 + 9010-9012). Chronologie : à 325 s `scmi_protocol scmi_dev.5: Received valid OoO Delayed Response for 124` puis `scmi_dev.4: Message for 124 type 0 is not expected!` ; à 483 s `CSG 4/5/0 update request timedout`, `CSG suspend failed`, `Failed to stop MCU`, `AS_ACTIVE bit stuck`, `Soft reset timeout`, WARNING `panthor_mmu.c:2186` (panthor_gpuva_sm_step_unmap via group_release_work). Wayland tombé.
+Autre boot, même charge : `scmi_dev.4: Invalid message type:0 for 713 - HDR:0xB245005 state:2` (en-tête décodé : protocole 0x14 clock, message 0x05 CLOCK_RATE_SET, token 713, état SENT_OK).
+Non reproduit ensuite, sur le même noyau :
+- gouverneur GPU `performance` : 34 min de charge, 0 erreur ; puis retour à `simple_ondemand` : 0 erreur ;
+- stress alterné stress-ng (CPU) + glmark2-es2-wayland (rafales GPU), 44 min, 200 cycles : 0 erreur ;
+- 10 bascules de /sys/devices/system/cpu/cpufreq/boost sous charge : 0 erreur ;
+- nouvelle compilation distcc -j20 avec ~/blackbox.sh actif : 0 erreur.
+Noyau 7.0 non modifié, compilation distcc -j20 : pas de reboot.
+Conclusion : déclencheur inconnu ; le blocage n'est pas propre à Firefox (voir ci-dessus) ni prouvé lié à #41. Repli si ça revient : `echo performance | sudo tee /sys/class/devfreq/15000000.gpu/governor` (disponible avec 9012 ; fréquence max fixe). Diagnostic : `sudo dmesg | grep -a -E 'scmi|panthor'`, sauver `dmesg` avant tout reboot.
+
+## 11. amvx (9002/9003) et état des PR (2026-10-14)
+- 9002 (`pages[0]` -> `pages[]` dans `struct mvx_mmu_pages`, mvx_mmu.h) supprime les UBSAN `array-index-out-of-bounds` de `mvx_mmu.c` ; 9003 (`q->lock = &vport->vsession->mutex` dans `setup_vb2_queue`) est du durcissement sans symptôme connu. Validés sur arbre neuf avec la conf de test : encode hevc_v4l2m2m 313 fps (13,1x), plus aucune ligne UBSAN/mvx_mmu/vb2 dans dmesg. Ajoutés à `config/kernels/6.18.14-lts.conf` après 9009 (commit 6039c6f). Le `Firmware rsp: Error code=7` de la section 10 n'est pas traité par 9002/9003.
+- PR #43 (Sky1-Linux/linux-sky1) : 0150/0151 (9005/9008, garde NULL cdns3), en attente de réaction.
+- Prêts, non envoyés : 0152/0153 (amvx, 9002/9003), 0154 (trilin DP HPD, 9007). Envoyer après la première réaction du mainteneur sur #43 (conflit possible sur `patches/series`).
+- Tested-by postés le 2026-10-14 sur les PR de hotschmoe #37, #40, #41 : encode VPU à 1200 MHz, glmark2-es2-wayland 2982, trafic SCMI CLOCK_RATE_GET ~0,5/s, stress 44 min sans erreur ; événement de la section 10 signalé dans #41.
+- Audio 9001/9009 : utiles seulement sur 7.0-next (le son marche sur 6.18.14 sans 9001) ; à réécrire sur `patches-next/` et tester sur 7.0 avant tout PR. 9006 = rétroportage de Maud Spierings (amont >= 6.19) : citer l'auteur et les hashes avant tout PR.
+
+## 12. Reboots à chaud pendant la compilation (2026-10-13/14, non élucidé)
+Deux redémarrages brutaux de suite pendant la compilation d'un noyau 6.18.56 (distcc -j20, boot sur 6.18.14 modifié). Écartés : pas de panic (`kernel.panic=0` figerait la carte), watchdog `sky1-wdt` inactif, pstore vide, températures au repos 41-45 °C (seuils 85/95/98 °C), rien dans /var/log/messages. Restent : alimentation (bloc USB-C PD 20 V 5 A, 100 W, câble ?) ou protection thermique du firmware. Non reproduit depuis. Outil : `~/blackbox.sh` (écrit mémoire, swap, charge, températures, fréquence et lignes scmi/panthor/WARNING toutes les 3 s avec sync dans ~/blackbox-*.log) ; à lancer avant toute grosse compilation. Si ça revient : `tail -30` du dernier blackbox, comparer avec 7.0 non modifié, tester un autre câble USB-C marqué 5 A.
