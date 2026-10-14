@@ -102,7 +102,7 @@ Diagnostic rapide : `gst-launch-1.0 playbin uri=file://... video-sink=fakesink a
 
 ## À faire
 - Hang GPU panthor : 2 occurrences (12 et 14 octobre), non reproduit ; si ça revient, blackbox + dmesg complet ; envisager un rapport à dri-devel avec les deux piles.
-- Envoyer les PR 0152/0153/0154 après réaction sur #43 ; 9006 : crédit Maud Spierings avant tout PR.
+- Envoyer le PR 0154 (HPD) ; 9006 : crédit Maud Spierings avant tout PR.
 - HDMI/DP : réveil du DP natif avec un écran DP, tests DP + HDMI simultanés.
 - Boot silencieux inexpliqué sur 7.0 juste après l'installation (non reproduit sur 5 boots) : si ça revient, garder `~/audio-check.log` et ne rien toucher.
 - Oops hlist (finit_module/idempotent_init_module), `Code: b4000140 f9400be1 f9000001 b4000041 (f9000420)` : non identifié, il faut le bloc complet (pc, lr, Call trace).
@@ -156,7 +156,7 @@ Conclusion : déclencheur inconnu ; le blocage n'est pas propre à Firefox (voir
 ## 11. amvx (9002/9003) et état des PR (2026-10-14)
 - 9002 (`pages[0]` -> `pages[]` dans `struct mvx_mmu_pages`, mvx_mmu.h) supprime les UBSAN `array-index-out-of-bounds` de `mvx_mmu.c` ; 9003 (`q->lock = &vport->vsession->mutex` dans `setup_vb2_queue`) est du durcissement sans symptôme connu. Validés sur arbre neuf avec la conf de test : encode hevc_v4l2m2m 313 fps (13,1x), plus aucune ligne UBSAN/mvx_mmu/vb2 dans dmesg. Ajoutés à `config/kernels/6.18.14-lts.conf` après 9009 (commit 6039c6f). Le `Firmware rsp: Error code=7` de la section 10 n'est pas traité par 9002/9003.
 - PR #43 (Sky1-Linux/linux-sky1) : 0150/0151 (9005/9008, garde NULL cdns3), en attente de réaction.
-- Prêts, non envoyés : 0152/0153 (amvx, 9002/9003), 0154 (trilin DP HPD, 9007). Envoyer après la première réaction du mainteneur sur #43 (conflit possible sur `patches/series`).
+- PR #44 (2026-10-14) : 0152/0153 (amvx, 9002/9003). Prêt, non envoyé : 0154 (trilin DP HPD, 9007), à envoyer à son tour. Le mainteneur ne réagit plus aux PR depuis début mars (#43 inclus) : ne pas attendre sa réponse avant d'envoyer la suite.
 - Tested-by postés le 2026-10-14 sur les PR de hotschmoe #37, #40, #41 : encode VPU à 1200 MHz, glmark2-es2-wayland 2982, trafic SCMI CLOCK_RATE_GET ~0,5/s, stress 44 min sans erreur ; événement de la section 10 signalé dans #41.
 - Audio 9001/9009 : utiles seulement sur 7.0-next (le son marche sur 6.18.14 sans 9001) ; à réécrire sur `patches-next/` et tester sur 7.0 avant tout PR. 9006 = rétroportage de Maud Spierings (amont >= 6.19) : citer l'auteur et les hashes avant tout PR.
 
